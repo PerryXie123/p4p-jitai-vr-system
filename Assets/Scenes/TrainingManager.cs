@@ -2,21 +2,26 @@ using UnityEngine;
 
 public class TrainingManager : MonoBehaviour
 {
-    string trainingMode;
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    private TrainingMode currentTrainingMode;
+
+    public void SetTrainingMode(TrainingMode mode)
     {
-        
+        currentTrainingMode = mode;
     }
 
-    // Update is called once per frame
-    void Update()
+    public void StartTraining()
     {
-        
+        if (currentTrainingMode == null)
+        {
+            Debug.LogWarning("No training mode assigned.");
+            return;
+        }
+
+        currentTrainingMode.StartTraining();
     }
 
-    public void SetTrainingMode(string trainingMode)
+    public void ResetTraining()
     {
-        this.trainingMode = trainingMode;
+        currentTrainingMode?.ResetTrainingUI();
     }
 }

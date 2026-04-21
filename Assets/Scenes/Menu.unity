@@ -11773,6 +11773,10 @@ PrefabInstance:
       value: 0.4
       objectReference: {fileID: 0}
     - target: {fileID: -8085885610120390686, guid: 71f6d4b3ad9e2bb44a9797c5e621e312, type: 3}
+      propertyPath: _enableBendFeature
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8085885610120390686, guid: 71f6d4b3ad9e2bb44a9797c5e621e312, type: 3}
       propertyPath: _player.Array.size
       value: 2
       objectReference: {fileID: 0}
@@ -42316,7 +42320,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d80f2b6645798d6448f6ef9685e70783, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _enableBendFeature: 1
+  _enableBendFeature: 0
   _bendOrigin: {fileID: 0}
   _startBendRange: 0.4
   _bendStrength: 0.7
