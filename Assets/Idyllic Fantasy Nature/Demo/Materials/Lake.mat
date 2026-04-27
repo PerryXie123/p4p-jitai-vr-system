@@ -141,8 +141,8 @@ Material:
     - _FoamDistance: 0.2
     - _FoamScale: 100
     - _FoamSpeed: 0.5
-    - _Foam_Amount: 0.074
-    - _Foam_Density: 0.1
+    - _Foam_Amount: 0.072
+    - _Foam_Density: 0.13
     - _Foam_Speed: 0.5
     - _GlossMapScale: 0
     - _Glossiness: 0
@@ -186,6 +186,7 @@ Material:
     - _Wave_Speed: 0
     - _Wave_Strength: 0
     - _WorkflowMode: 1
+    - _XRMotionVectorsPass: 1
     - _ZWrite: 1
     - _waveamplitude: 0.03
     m_Colors:
