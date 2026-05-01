@@ -6,6 +6,7 @@ public abstract class TrainingMode : MonoBehaviour
     [SerializeField] protected GameObject orb;
     [SerializeField] protected GameObject startPanel;
     [SerializeField] protected GameObject finishPanel;
+    [SerializeField] protected GameObject focusText;
 
     public virtual void StartTraining()
     {
@@ -14,19 +15,23 @@ public abstract class TrainingMode : MonoBehaviour
 
     protected virtual IEnumerator TrainingRoutine()
     {
-        if (orb == null || startPanel == null || finishPanel == null)
+        if (orb == null || startPanel == null || finishPanel == null || focusText == null)
         {
-            Debug.LogError("Orb, Start Panel, or Finish Panel is not assigned.", this);
+            Debug.LogError("Missing references.", this);
             yield break;
         }
 
         startPanel.SetActive(false);
         finishPanel.SetActive(false);
-        orb.SetActive(true);
 
-        yield return new WaitForSeconds(10f);
+        orb.SetActive(true);
+        focusText.SetActive(true);   // 👈 SHOW when training starts
+
+        yield return new WaitForSeconds(30f);
 
         orb.SetActive(false);
+        focusText.SetActive(false);  // 👈 HIDE when training ends
+
         finishPanel.SetActive(true);
     }
 
@@ -35,5 +40,6 @@ public abstract class TrainingMode : MonoBehaviour
         if (orb != null) orb.SetActive(false);
         if (startPanel != null) startPanel.SetActive(true);
         if (finishPanel != null) finishPanel.SetActive(false);
+        if (focusText != null) focusText.SetActive(false); // 👈 ensure hidden
     }
 }
