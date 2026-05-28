@@ -5,12 +5,18 @@ using UnityEngine.XR.Interaction.Toolkit.Interactables;
 public class OrbFocus : MonoBehaviour
 {
     [SerializeField] private AuditoryTraining auditoryTraining;
+    [SerializeField] private DataReceiverScript dataReceiver;
 
     private XRBaseInteractable interactable;
 
     private void Awake()
     {
         interactable = GetComponent<XRBaseInteractable>();
+        
+        if (dataReceiver == null)
+        {
+            dataReceiver = FindFirstObjectByType<DataReceiverScript>();
+        }
 
         if (interactable == null)
         {
@@ -38,7 +44,12 @@ public class OrbFocus : MonoBehaviour
     {
         Debug.Log("Focused on orb");
 
-        if (auditoryTraining != null)
+        if (dataReceiver != null)
+        {
+            dataReceiver.SetOrbFocus(true);
+        }
+
+        if (dataReceiver == null && auditoryTraining != null)
         {
             auditoryTraining.SetFocus(true);
         }
@@ -48,7 +59,12 @@ public class OrbFocus : MonoBehaviour
     {
         Debug.Log("Stopped focusing on orb");
 
-        if (auditoryTraining != null)
+        if (dataReceiver != null)
+        {
+            dataReceiver.SetOrbFocus(false);
+        }
+
+        if (dataReceiver == null && auditoryTraining != null)
         {
             auditoryTraining.SetFocus(false);
         }
