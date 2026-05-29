@@ -9,6 +9,7 @@ public class AuditoryTraining : TrainingMode
     [Header("One-Shot Trigger")]
     [SerializeField] private AudioSource oneShotAudio;
     [SerializeField] private AudioClip triggerClip;
+    [Range(1f, 30f)]
     [SerializeField] private float focusTriggerTime = 5f;
 
     private bool isFocused = false;
