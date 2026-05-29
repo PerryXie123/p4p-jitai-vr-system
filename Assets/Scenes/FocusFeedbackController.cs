@@ -5,21 +5,28 @@ public class FocusFeedbackController : MonoBehaviour
 {
     [Header("Focus Source")]
     [SerializeField] private DataReceiverScript dataReceiver;
+    [SerializeField] private bool requireTrainingActive = true;
 
     [Header("Timing")]
     [SerializeField, Range(0.5f, 30f)] private float unfocusedDelay = 5f;
-    [SerializeField, Range(0.1f, 10f)] private float fadeDuration = 1f;
+    [SerializeField, Range(0f, 100f)] private float dimmingIncreasePerSecond = 12f;
+    [SerializeField, Range(0f, 100f)] private float dimmingDecreasePerSecond = 20f;
 
     [Header("Screen Darkening")]
     [SerializeField] private CanvasGroup darkenOverlay;
     [SerializeField] private Graphic darkenGraphic;
     [SerializeField] private bool useRuntimeOverlayQuad = true;
     [SerializeField] private bool previewDarkening;
-    [SerializeField, Range(0f, 1f)] private float darkenedAlpha = 0.65f;
+    [SerializeField, Range(0f, 100f)] private float maxDimmingOpacity = 65f;
     [SerializeField] private Camera targetCamera;
     [SerializeField] private bool keepOverlayInFrontOfCamera = true;
     [SerializeField, Range(0.25f, 10f)] private float overlayDistance = 1.5f;
     [SerializeField, Range(1f, 3f)] private float overlaySizeMultiplier = 1.2f;
+
+    [Header("Ambient Audio")]
+    [SerializeField] private AudioSource ambientAudioSource;
+    [SerializeField, Range(0f, 1f)] private float normalAmbientVolume = 1f;
+    [SerializeField, Range(0f, 1f)] private float fullyDimmedAmbientVolume = 0.25f;
 
     [Header("Orb Brightness")]
     [SerializeField] private Renderer orbRenderer;
@@ -35,18 +42,32 @@ public class FocusFeedbackController : MonoBehaviour
 
     private float unfocusedTimer;
     private float feedbackAmount;
+    private float currentDimmingOpacity;
     private MaterialPropertyBlock propertyBlock;
     private Transform runtimeOverlayTransform;
     private Renderer runtimeOverlayRenderer;
     private Material runtimeOverlayMaterial;
     private Material[] orbMaterials;
     private int[] originalOrbRenderQueues;
+    private TrainingMode[] trainingModes;
 
     private void Awake()
     {
         if (dataReceiver == null)
         {
             dataReceiver = FindFirstObjectByType<DataReceiverScript>();
+        }
+
+        trainingModes = FindObjectsByType<TrainingMode>(FindObjectsSortMode.None);
+
+        if (ambientAudioSource == null)
+        {
+            AuditoryTraining auditoryTraining = FindFirstObjectByType<AuditoryTraining>();
+            if (auditoryTraining != null)
+            {
+                ambientAudioSource = auditoryTraining.MainAudioSource;
+                normalAmbientVolume = auditoryTraining.MainVolume;
+            }
         }
 
         if (targetCamera == null)
@@ -90,9 +111,10 @@ public class FocusFeedbackController : MonoBehaviour
 
     private void Update()
     {
+        bool isTrainingActive = !requireTrainingActive || IsAnyTrainingModeActive();
         bool isFocused = dataReceiver != null && dataReceiver.IsFocused;
 
-        if (isFocused)
+        if (!isTrainingActive || isFocused)
         {
             unfocusedTimer = 0f;
         }
@@ -101,11 +123,10 @@ public class FocusFeedbackController : MonoBehaviour
             unfocusedTimer += Time.deltaTime;
         }
 
-        float targetAmount = previewDarkening || unfocusedTimer >= unfocusedDelay ? 1f : 0f;
-        float step = fadeDuration <= 0f ? 1f : Time.deltaTime / fadeDuration;
-        feedbackAmount = Mathf.MoveTowards(feedbackAmount, targetAmount, step);
+        UpdateDimmingOpacity(isTrainingActive, isFocused);
 
         ApplyDarkening();
+        ApplyAmbientAudio();
         ApplyOrbBrightness();
     }
 
@@ -117,6 +138,8 @@ public class FocusFeedbackController : MonoBehaviour
 
     private void ApplyDarkening()
     {
+        float alpha = currentDimmingOpacity / 100f;
+
         if (darkenOverlay != null)
         {
             if (darkenGraphic != null && darkenGraphic.color.a <= 0f)
@@ -126,15 +149,57 @@ public class FocusFeedbackController : MonoBehaviour
                 darkenGraphic.color = color;
             }
 
-            darkenOverlay.alpha = Mathf.Lerp(0f, darkenedAlpha, feedbackAmount);
+            darkenOverlay.alpha = alpha;
         }
 
         if (runtimeOverlayMaterial != null)
         {
             Color color = Color.black;
-            color.a = Mathf.Lerp(0f, darkenedAlpha, feedbackAmount);
+            color.a = alpha;
             runtimeOverlayMaterial.color = color;
         }
+    }
+
+    private void UpdateDimmingOpacity(bool isTrainingActive, bool isFocused)
+    {
+        if (previewDarkening && isTrainingActive)
+        {
+            currentDimmingOpacity = maxDimmingOpacity;
+        }
+        else if (!isTrainingActive)
+        {
+            currentDimmingOpacity = Mathf.MoveTowards(
+                currentDimmingOpacity,
+                0f,
+                dimmingDecreasePerSecond * Time.deltaTime);
+        }
+        else if (isFocused)
+        {
+            unfocusedTimer = 0f;
+            currentDimmingOpacity = Mathf.MoveTowards(
+                currentDimmingOpacity,
+                0f,
+                dimmingDecreasePerSecond * Time.deltaTime);
+        }
+        else if (unfocusedTimer >= unfocusedDelay)
+        {
+            currentDimmingOpacity = Mathf.MoveTowards(
+                currentDimmingOpacity,
+                maxDimmingOpacity,
+                dimmingIncreasePerSecond * Time.deltaTime);
+        }
+
+        feedbackAmount = maxDimmingOpacity <= 0f ? 0f : currentDimmingOpacity / maxDimmingOpacity;
+    }
+
+    private void ApplyAmbientAudio()
+    {
+        if (ambientAudioSource == null) return;
+
+        ambientAudioSource.volume = Mathf.Lerp(
+            normalAmbientVolume,
+            fullyDimmedAmbientVolume,
+            feedbackAmount);
     }
 
     private void PositionOverlayInFrontOfCamera()
@@ -221,8 +286,33 @@ public class FocusFeedbackController : MonoBehaviour
             material.SetFloat("_ZWrite", 0f);
         }
 
+        if (material.HasProperty("_ZTest"))
+        {
+            material.SetFloat("_ZTest", (float)UnityEngine.Rendering.CompareFunction.Always);
+        }
+
+        material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.Always);
+        material.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Off);
         material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
         return material;
+    }
+
+    private bool IsAnyTrainingModeActive()
+    {
+        if (trainingModes == null || trainingModes.Length == 0)
+        {
+            trainingModes = FindObjectsByType<TrainingMode>(FindObjectsSortMode.None);
+        }
+
+        foreach (TrainingMode trainingMode in trainingModes)
+        {
+            if (trainingMode != null && trainingMode.IsTrainingActive)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void PositionRuntimeOverlayInFrontOfCamera()

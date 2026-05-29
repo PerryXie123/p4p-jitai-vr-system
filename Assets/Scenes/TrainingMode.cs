@@ -8,6 +8,8 @@ public abstract class TrainingMode : MonoBehaviour
     [SerializeField] protected GameObject finishPanel;
     [SerializeField] protected GameObject focusText;
 
+    public bool IsTrainingActive { get; private set; }
+
     public virtual void StartTraining()
     {
         StartCoroutine(TrainingRoutine());
@@ -21,6 +23,8 @@ public abstract class TrainingMode : MonoBehaviour
             yield break;
         }
 
+        IsTrainingActive = true;
+
         startPanel.SetActive(false);
         finishPanel.SetActive(false);
 
@@ -33,10 +37,13 @@ public abstract class TrainingMode : MonoBehaviour
         focusText.SetActive(false);  // 👈 HIDE when training ends
 
         finishPanel.SetActive(true);
+        IsTrainingActive = false;
     }
 
     public virtual void ResetTrainingUI()
     {
+        IsTrainingActive = false;
+
         if (orb != null) orb.SetActive(false);
         if (startPanel != null) startPanel.SetActive(true);
         if (finishPanel != null) finishPanel.SetActive(false);
