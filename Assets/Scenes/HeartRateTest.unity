@@ -513,7 +513,7 @@ GameObject:
   - component: {fileID: 552933075}
   - component: {fileID: 552933074}
   m_Layer: 0
-  m_Name: Text (TMP)
+  m_Name: Status Text
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -771,6 +771,7 @@ GameObject:
   - component: {fileID: 624863904}
   - component: {fileID: 624863906}
   - component: {fileID: 624863905}
+  - component: {fileID: 624863907}
   m_Layer: 0
   m_Name: Panel
   m_TagString: Untagged
@@ -838,6 +839,20 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 624863903}
   m_CullTransparentMesh: 1
+--- !u!114 &624863907
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 624863903}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 477d01ba5e93e7f46b9e7766b11b17ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HeartRateScript
+  heartRateText: {fileID: 458547062}
+  statusText: {fileID: 552933074}
 --- !u!1 &756192406
 GameObject:
   m_ObjectHideFlags: 0
