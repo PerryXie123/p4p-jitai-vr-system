@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2026-07-01T00:00:00.000Z" agent="Codex" version="24.7.17" type="device">
+  <diagram id="jitai-data-flow" name="JITAI Data Flow">
+    <mxGraphModel dx="2200" dy="1700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2200" pageHeight="1700" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="JITAI VR System — Sensor Data Flow" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;fontSize=24;fontStyle=1;fontColor=#1F2937;" vertex="1" parent="1">
+          <mxGeometry x="840" y="20" width="520" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="incoming" value="&lt;b&gt;Incoming sensor data&lt;/b&gt;&lt;br&gt;UDP text payload: { hrv, eyeGaze }" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="900" y="100" width="400" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="receive" value="&lt;b&gt;DataReceiverScript&lt;/b&gt;&lt;br&gt;StartReceiver() → ReceiveLoop()&lt;br&gt;UdpClient.Receive() + UTF-8 decode" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="900" y="250" width="400" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="parse" value="&lt;b&gt;DataReceiverScript.ParseSensorFrame()&lt;/b&gt;&lt;br&gt;Split key/value pairs; parse floats using InvariantCulture&lt;br&gt;Returns SensorFrame { hrv, eyeGaze }" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="875" y="420" width="450" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="state" value="&lt;b&gt;DataReceiverScript synchronized state&lt;/b&gt;&lt;br&gt;Clamp01() → hrvValue, eyeGazeValue, hasReceivedData&lt;br&gt;Values protected by dataLock" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=2;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="875" y="605" width="450" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="orb-input" value="&lt;b&gt;XR gaze interaction&lt;/b&gt;&lt;br&gt;hoverEntered / hoverExited" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="120" y="420" width="300" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="orb-focus" value="&lt;b&gt;OrbFocus&lt;/b&gt;&lt;br&gt;OnHoverEnter() / OnHoverExit()&lt;br&gt;DataReceiverScript.SetOrbFocus(bool)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="120" y="605" width="300" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="focus-decision" value="&lt;b&gt;DataReceiverScript.IsFocused&lt;/b&gt;&lt;br&gt;GetPassingCheckCount() ≥ 2" style="rhombus;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=2;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="950" y="800" width="300" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="thresholds" value="&lt;b&gt;Three checks&lt;/b&gt;&lt;br&gt;IsHrvPassing: received &amp;amp;&amp;amp; HRV &amp;lt; hrvThreshold&lt;br&gt;IsEyeGazePassing: received &amp;amp;&amp;amp; eyeGaze &amp;gt; eyeGazeThreshold&lt;br&gt;IsLookingAtOrb: XR hover state" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="1400" y="805" width="400" height="130" as="geometry" />
+        </mxCell>
+
+        <mxCell id="auditory" value="&lt;b&gt;AuditoryTraining : TrainingMode&lt;/b&gt;&lt;br&gt;DataReceiverScript.UpdateConsumers()&lt;br&gt;→ SetFocus(IsFocused)&lt;br&gt;Update() accumulates focusTimer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="50" y="1120" width="360" height="125" as="geometry" />
+        </mxCell>
+        <mxCell id="visual" value="&lt;b&gt;VisualTraining : TrainingMode&lt;/b&gt;&lt;br&gt;Update() reads DataReceiverScript.IsFocused&lt;br&gt;focusTimer → visibleAnimalCount&lt;br&gt;FadeAnimalsToward()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="550" y="1120" width="360" height="125" as="geometry" />
+        </mxCell>
+        <mxCell id="feedback" value="&lt;b&gt;FocusFeedbackController&lt;/b&gt;&lt;br&gt;Update() reads DataReceiverScript.IsFocused&lt;br&gt;and TrainingMode.IsTrainingActive&lt;br&gt;Updates feedbackAmount" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="1050" y="1120" width="360" height="125" as="geometry" />
+        </mxCell>
+        <mxCell id="focus-ui" value="&lt;b&gt;FocusUI&lt;/b&gt;&lt;br&gt;RefreshStatus() calls&lt;br&gt;DataReceiverScript.GetStatusText()&lt;br&gt;and reads IsFocused" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="1550" y="1120" width="360" height="125" as="geometry" />
+        </mxCell>
+
+        <mxCell id="audio-output" value="&lt;b&gt;Audio response&lt;/b&gt;&lt;br&gt;PlayTrigger() after sustained focus&lt;br&gt;StopAudio() when training ends" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="50" y="1410" width="360" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="visual-output" value="&lt;b&gt;Visual animal response&lt;/b&gt;&lt;br&gt;TrainingAnimalVisual.SetVisibility()&lt;br&gt;TrainingAnimalWalker drives CreatureMover" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="550" y="1410" width="360" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="feedback-output" value="&lt;b&gt;Environment feedback&lt;/b&gt;&lt;br&gt;ApplyDarkening() · ApplyAmbientAudio()&lt;br&gt;ApplyOrbBrightness()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="1050" y="1410" width="360" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="ui-output" value="&lt;b&gt;Focus status UI&lt;/b&gt;&lt;br&gt;Focused / Not Focused&lt;br&gt;HRV, eye-gaze and orb pass/fail" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="1550" y="1410" width="360" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="manager" value="&lt;b&gt;TrainingManager&lt;/b&gt;&lt;br&gt;SetTrainingMode() / StartTraining()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;dashed=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="1700" y="250" width="320" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="mode" value="&lt;b&gt;TrainingMode&lt;/b&gt;&lt;br&gt;StartTraining() → TrainingRoutine()&lt;br&gt;publishes IsTrainingActive" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;dashed=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="1700" y="420" width="320" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend" value="&lt;b&gt;Legend&lt;/b&gt;&lt;br&gt;Solid arrows: sensor/focus data flow&lt;br&gt;Dashed arrows: training lifecycle control" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#999999;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="50" y="1570" width="360" height="75" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e1" value="UDP :5005" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="incoming" target="receive"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e2" value="message string" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="receive" target="parse"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e3" value="SensorFrame" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="parse" target="state"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e4" value="HRV + eye gaze" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="state" target="focus-decision"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e5" value="XR events" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="orb-input" target="orb-focus"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e6" value="isLookingAtOrb" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;fontSize=12;" edge="1" parent="1" source="orb-focus" target="focus-decision">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="500" y="750" /><mxPoint x="900" y="750" /><mxPoint x="900" y="870" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e7" value="evaluation rules" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=open;endFill=0;strokeWidth=1;fontSize=12;" edge="1" parent="1" source="thresholds" target="focus-decision"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e8" value="SetFocus(IsFocused)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;fontSize=11;" edge="1" parent="1" source="focus-decision" target="auditory">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1100" y="980" /><mxPoint x="230" y="980" /><mxPoint x="230" y="1080" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e9" value="reads IsFocused" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;fontSize=11;" edge="1" parent="1" source="focus-decision" target="visual">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1100" y="1005" /><mxPoint x="730" y="1005" /><mxPoint x="730" y="1080" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e10" value="reads IsFocused" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;fontSize=11;" edge="1" parent="1" source="focus-decision" target="feedback">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1100" y="1030" /><mxPoint x="1230" y="1030" /><mxPoint x="1230" y="1080" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e11" value="status + IsFocused" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;fontSize=11;" edge="1" parent="1" source="focus-decision" target="focus-ui">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1100" y="1055" /><mxPoint x="1730" y="1055" /><mxPoint x="1730" y="1080" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;" edge="1" parent="1" source="auditory" target="audio-output"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;" edge="1" parent="1" source="visual" target="visual-output"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e14" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;" edge="1" parent="1" source="feedback" target="feedback-output"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;" edge="1" parent="1" source="focus-ui" target="ui-output"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e16" value="starts selected mode" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;dashed=1;strokeColor=#666666;fontSize=11;" edge="1" parent="1" source="manager" target="mode"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e17" value="lifecycle" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=open;endFill=0;dashed=1;strokeColor=#666666;fontSize=11;" edge="1" parent="1" source="mode" target="auditory">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2080" y="470" /><mxPoint x="2080" y="1070" /><mxPoint x="230" y="1070" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e18" value="lifecycle" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=open;endFill=0;dashed=1;strokeColor=#666666;fontSize=11;" edge="1" parent="1" source="mode" target="visual">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2110" y="470" /><mxPoint x="2110" y="1090" /><mxPoint x="730" y="1090" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e19" value="IsTrainingActive" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=open;endFill=0;dashed=1;strokeColor=#666666;fontSize=11;" edge="1" parent="1" source="mode" target="feedback">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2140" y="470" /><mxPoint x="2140" y="1110" /><mxPoint x="1230" y="1110" /></Array></mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
