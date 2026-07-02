@@ -66,55 +66,100 @@ namespace Assets.Scripts.SignalProcessing
                 listener.Start();
                 Debug.Log($"Listening for TCP connection on {serverIP}:{serverPort}");
 
-                tcpClient = listener.AcceptTcpClient();
-                stream = tcpClient.GetStream();
-                Debug.Log("Client connected");
-                statusQueue.Enqueue("Client connected");
-                byte[] buffer = new byte[4096];
-                string pending = string.Empty;
-
+                // Accept clients repeatedly so the server keeps working after a
+                // client disconnects and later reconnects. One client at a time.
                 while (running)
                 {
-                    int bytesRead = stream.Read(buffer, 0, buffer.Length);
-                    if (bytesRead <= 0)
-                    {
-                        break;
-                    }
-
-                    pending += Encoding.UTF8.GetString(buffer, 0, bytesRead);
-
-                    // Each message is terminated by '\n'. Pull out every
-                    // complete line; leave any partial remainder in `pending`.
-                    int newlineIndex;
-                    while ((newlineIndex = pending.IndexOf('\n')) >= 0)
-                    {
-                        string message = pending.Substring(0, newlineIndex).Trim();
-                        pending = pending.Substring(newlineIndex + 1);
-
-                        if (message.Length == 0)
-                        {
-                            continue;
-                        }
-
-                        try
-                        {
-                            Debug.Log($"Received message: {message}");
-                            T parsedMessage = ParseJsonToObject(message);
-                            messageQueue.Enqueue(parsedMessage);
-                        }
-                        catch
-                        {
-                        }
-                    }
+                    ServeClient();
                 }
             }
             catch (Exception e)
             {
                 if (!running) return;
-                
-                Debug.LogError($"Error in TCP connection: {e.Message}");    
-                statusQueue.Enqueue($"Error in TCP connection: {e.Message}");   
+                Debug.LogError($"Error in TCP connection: {e.Message}");
+                statusQueue.Enqueue($"Error in TCP connection: {e.Message}");
             }
+        }
+
+        // Accepts a single client and reads from it until it disconnects, then
+        // returns so ListenToSocket can accept the next one.
+        private void ServeClient()
+        {
+            try
+            {
+                tcpClient = listener.AcceptTcpClient();
+                stream = tcpClient.GetStream();
+                Debug.Log("Client connected");
+                statusQueue.Enqueue("Client connected");
+
+                ReadFromClient(stream);
+            }
+            catch (Exception e)
+            {
+                if (!running) return;
+
+                Debug.LogWarning($"Client connection lost, waiting for reconnect: {e.Message}");
+            }
+            finally
+            {
+                // Release this connection's sockets before re-accepting
+                // so they are not leaked on every reconnect.
+                try { stream?.Close(); } catch { }
+                try { tcpClient?.Close(); } catch { }
+                statusQueue.Enqueue("Disconnected...");
+
+            }
+        }
+
+        // Reads bytes from a connected client until it disconnects, dispatching
+        // each complete newline-terminated message. `pending` starts empty for
+        // every connection so a half-received line from a dead client cannot
+        // corrupt the next client's first message.
+        private void ReadFromClient(NetworkStream clientStream)
+        {
+            byte[] buffer = new byte[4096];
+            string pending = string.Empty;
+
+            while (running)
+            {
+                int bytesRead = clientStream.Read(buffer, 0, buffer.Length);
+                if (bytesRead <= 0)
+                {
+                    break;
+                }
+
+                pending += Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                pending = DispatchCompleteMessages(pending);
+            }
+        }
+
+        // Pulls every complete '\n'-terminated message out of `pending`,
+        // enqueuing each one, and returns any partial remainder.
+        private string DispatchCompleteMessages(string pending)
+        {
+            int newlineIndex;
+            while ((newlineIndex = pending.IndexOf('\n')) >= 0)
+            {
+                string message = pending.Substring(0, newlineIndex).Trim();
+                pending = pending.Substring(newlineIndex + 1);
+
+                if (message.Length == 0)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    Debug.Log($"Received message: {message}");
+                    T parsedMessage = ParseJsonToObject(message);
+                    messageQueue.Enqueue(parsedMessage);
+                }
+                catch
+                {
+                }
+            }
+
+            return pending;
         }
 
         private T ParseJsonToObject(string json)

@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class HeartRateScript : MonoBehaviour
 {
-    private TcpGameServer<SensorStats> sensorClient;
+    private TcpGameServer<VitalSnapshot> sensorClient;
     public TextMeshProUGUI heartRateText;
     public TextMeshProUGUI statusText;
 
@@ -22,9 +22,9 @@ public class HeartRateScript : MonoBehaviour
 
     void UpdateLabels()
     {
-        if (sensorClient.TryGetMessage(out SensorStats stats))
+        if (sensorClient.TryGetMessage(out VitalSnapshot stats))
         {
-            heartRateText.text = $"{stats.HeartRate}";
+            heartRateText.text = $"{stats.PrintVitals()}";
         }
         if (sensorClient.TryGetError(out string error))
         {
@@ -39,7 +39,7 @@ public class HeartRateScript : MonoBehaviour
 
     private void InitSensorSocket()
     {
-        sensorClient = new TcpGameServer<SensorStats>();
+        sensorClient = new TcpGameServer<VitalSnapshot>();
         sensorClient.InitConnection();
     }
 }
