@@ -8,12 +8,14 @@ public class VisualTraining : TrainingMode
 
     [Header("Animal Feedback")]
     [SerializeField] private GameObject[] trainingAnimals;
-    [SerializeField, Range(1f, 30f)] private float focusSecondsPerAnimal = 5f;
+    [SerializeField, Range(0f, 30f)] private float focusSecondsBeforeAnimalsAppear = 5f;
     [SerializeField, Range(0.1f, 5f)] private float fadeInSeconds = 0.75f;
-    [SerializeField, Range(0.1f, 5f)] private float fadeOutSeconds = 1.5f;
+    [SerializeField, Range(0.1f, 5f)] private float fadeOutSeconds = 2f;
 
     private TrainingAnimalVisual[] animalVisuals;
     private float focusTimer;
+    private bool animalsHaveAppeared;
+    private bool positionsResetAfterFade;
 
     private void Awake()
     {
@@ -29,7 +31,6 @@ public class VisualTraining : TrainingMode
     public override void StartTraining()
     {
         Debug.Log("Starting visual training");
-        focusTimer = 0f;
         HideAnimalsImmediately();
         base.StartTraining();
     }
@@ -37,7 +38,6 @@ public class VisualTraining : TrainingMode
     protected override IEnumerator TrainingRoutine()
     {
         yield return base.TrainingRoutine();
-        focusTimer = 0f;
         HideAnimalsImmediately();
     }
 
@@ -45,33 +45,34 @@ public class VisualTraining : TrainingMode
     {
         if (!IsTrainingActive)
         {
-            FadeAnimalsToward(0);
+            FadeAnimalsToward(false);
             return;
         }
 
         bool isFocused = dataReceiver != null && dataReceiver.IsFocused;
 
-        if (isFocused)
-        {
-            focusTimer += Time.deltaTime;
-        }
-        else
+        if (!isFocused)
         {
             focusTimer = 0f;
+            FadeAnimalsToward(false);
+            return;
         }
 
-        int visibleAnimalCount = Mathf.Clamp(
-            Mathf.FloorToInt(focusTimer / focusSecondsPerAnimal),
-            0,
-            animalVisuals == null ? 0 : animalVisuals.Length);
+        // Once the animals have appeared, refocusing during their fade brings
+        // them straight back. A fresh five-second dwell is only required after
+        // they have completely faded and returned to their starting positions.
+        if (!animalsHaveAppeared)
+        {
+            focusTimer += Time.deltaTime;
+            animalsHaveAppeared = focusTimer >= focusSecondsBeforeAnimalsAppear;
+        }
 
-        FadeAnimalsToward(visibleAnimalCount);
+        FadeAnimalsToward(animalsHaveAppeared);
     }
 
     public override void ResetTrainingUI()
     {
         base.ResetTrainingUI();
-        focusTimer = 0f;
         HideAnimalsImmediately();
     }
 
@@ -106,21 +107,48 @@ public class VisualTraining : TrainingMode
         }
     }
 
-    private void FadeAnimalsToward(int visibleAnimalCount)
+    private void FadeAnimalsToward(bool shouldBeVisible)
     {
         if (animalVisuals == null)
         {
             return;
         }
 
+        if (shouldBeVisible)
+        {
+            positionsResetAfterFade = false;
+        }
+
+        bool allAnimalsHidden = true;
+
         for (int i = 0; i < animalVisuals.Length; i++)
         {
             TrainingAnimalVisual visual = animalVisuals[i];
             if (visual == null) continue;
 
-            float targetVisibility = i < visibleAnimalCount ? 1f : 0f;
+            float targetVisibility = shouldBeVisible ? 1f : 0f;
             float fadeSeconds = targetVisibility > visual.Visibility ? fadeInSeconds : fadeOutSeconds;
             visual.MoveVisibilityToward(targetVisibility, fadeSeconds);
+            allAnimalsHidden &= visual.Visibility <= 0f;
+        }
+
+        if (!shouldBeVisible && allAnimalsHidden && !positionsResetAfterFade)
+        {
+            ResetAnimalPositions();
+            focusTimer = 0f;
+            animalsHaveAppeared = false;
+            positionsResetAfterFade = true;
+        }
+    }
+
+    private void ResetAnimalPositions()
+    {
+        foreach (TrainingAnimalVisual visual in animalVisuals)
+        {
+            if (visual != null)
+            {
+                visual.ResetToStartingPosition();
+            }
         }
     }
 
@@ -136,7 +164,12 @@ public class VisualTraining : TrainingMode
             if (visual != null)
             {
                 visual.SetVisibility(0f);
+                visual.ResetToStartingPosition();
             }
         }
+
+        positionsResetAfterFade = true;
+        focusTimer = 0f;
+        animalsHaveAppeared = false;
     }
 }

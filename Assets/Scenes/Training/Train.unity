@@ -5691,9 +5691,9 @@ MonoBehaviour:
   - {fileID: 967304149}
   - {fileID: 2002486149}
   - {fileID: 343501834}
-  focusSecondsPerAnimal: 3
+  focusSecondsBeforeAnimalsAppear: 5
   fadeInSeconds: 0.75
-  fadeOutSeconds: 1.5
+  fadeOutSeconds: 2
 --- !u!1001 &109494166
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -19894,7 +19894,7 @@ MonoBehaviour:
   m_LiveConeCastDebugVisuals: 0
   m_RaycastMask:
     serializedVersion: 2
-    m_Bits: 55
+    m_Bits: 51
   m_RaycastTriggerInteraction: 1
   m_RaycastSnapVolumeInteraction: 1
   m_HitClosestOnly: 0

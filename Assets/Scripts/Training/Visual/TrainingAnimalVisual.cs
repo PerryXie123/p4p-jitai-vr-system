@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 
 public class TrainingAnimalVisual : MonoBehaviour
 {
@@ -7,6 +8,10 @@ public class TrainingAnimalVisual : MonoBehaviour
 
     private Renderer[] renderers;
     private Material[][] rendererMaterials;
+    private Transform[] hierarchyTransforms;
+    private int[] originalLayers;
+    private Vector3 startingLocalPosition;
+    private Quaternion startingLocalRotation;
     private Vector3 originalScale;
     private float visibility = 1f;
     private bool isInitialized;
@@ -16,6 +21,11 @@ public class TrainingAnimalVisual : MonoBehaviour
     private void Awake()
     {
         EnsureInitialized();
+    }
+
+    private void OnDestroy()
+    {
+        RestoreOriginalLayers();
     }
 
     public void MoveVisibilityToward(float targetVisibility, float fadeSeconds)
@@ -40,6 +50,12 @@ public class TrainingAnimalVisual : MonoBehaviour
 
         transform.localScale = originalScale * Mathf.Lerp(0.85f, 1f, visibility);
         ApplyAlpha(visibility);
+    }
+
+    public void ResetToStartingPosition()
+    {
+        EnsureInitialized();
+        transform.SetLocalPositionAndRotation(startingLocalPosition, startingLocalRotation);
     }
 
     private void ApplyAlpha(float alpha)
@@ -83,15 +99,91 @@ public class TrainingAnimalVisual : MonoBehaviour
             return;
         }
 
+        startingLocalPosition = transform.localPosition;
+        startingLocalRotation = transform.localRotation;
         originalScale = transform.localScale;
+        MoveHierarchyToIgnoreRaycastLayer();
         renderers = GetComponentsInChildren<Renderer>(true);
         rendererMaterials = new Material[renderers.Length][];
 
         for (int i = 0; i < renderers.Length; i++)
         {
             rendererMaterials[i] = renderers[i] != null ? renderers[i].materials : null;
+
+            if (rendererMaterials[i] == null) continue;
+
+            foreach (Material material in rendererMaterials[i])
+            {
+                ConfigureForTransparency(material);
+            }
         }
 
         isInitialized = true;
+    }
+
+    private static void ConfigureForTransparency(Material material)
+    {
+        if (material == null) return;
+
+        // URP/Lit materials ignore colour alpha while their surface type is opaque.
+        // These are per-renderer material instances, so this does not modify the
+        // shared material asset used elsewhere in the scene.
+        if (material.HasProperty("_Surface"))
+        {
+            material.SetFloat("_Surface", 1f);
+            material.SetFloat("_Blend", 0f);
+            material.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+            material.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+            material.SetFloat("_SrcBlendAlpha", (float)BlendMode.One);
+            material.SetFloat("_DstBlendAlpha", (float)BlendMode.OneMinusSrcAlpha);
+            material.SetFloat("_ZWrite", 0f);
+            material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            material.SetOverrideTag("RenderType", "Transparent");
+            material.renderQueue = (int)RenderQueue.Transparent;
+            return;
+        }
+
+        // Fallback for built-in Standard materials.
+        if (material.HasProperty("_Mode"))
+        {
+            material.SetFloat("_Mode", 2f);
+            material.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+            material.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+            material.SetFloat("_ZWrite", 0f);
+            material.DisableKeyword("_ALPHATEST_ON");
+            material.EnableKeyword("_ALPHABLEND_ON");
+            material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            material.SetOverrideTag("RenderType", "Transparent");
+            material.renderQueue = (int)RenderQueue.Transparent;
+        }
+    }
+
+    private void MoveHierarchyToIgnoreRaycastLayer()
+    {
+        int ignoreRaycastLayer = LayerMask.NameToLayer("Ignore Raycast");
+        if (ignoreRaycastLayer < 0) return;
+
+        hierarchyTransforms = GetComponentsInChildren<Transform>(true);
+        originalLayers = new int[hierarchyTransforms.Length];
+
+        for (int i = 0; i < hierarchyTransforms.Length; i++)
+        {
+            originalLayers[i] = hierarchyTransforms[i].gameObject.layer;
+            hierarchyTransforms[i].gameObject.layer = ignoreRaycastLayer;
+        }
+    }
+
+    private void RestoreOriginalLayers()
+    {
+        if (hierarchyTransforms == null || originalLayers == null) return;
+
+        for (int i = 0; i < hierarchyTransforms.Length && i < originalLayers.Length; i++)
+        {
+            if (hierarchyTransforms[i] != null)
+            {
+                hierarchyTransforms[i].gameObject.layer = originalLayers[i];
+            }
+        }
     }
 }
