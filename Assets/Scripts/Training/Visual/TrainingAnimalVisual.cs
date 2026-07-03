@@ -14,6 +14,7 @@ public class TrainingAnimalVisual : MonoBehaviour
     private Quaternion startingLocalRotation;
     private Vector3 originalScale;
     private float visibility = 1f;
+    private bool isFadingIn;
     private bool isInitialized;
 
     public float Visibility => visibility;
@@ -28,12 +29,23 @@ public class TrainingAnimalVisual : MonoBehaviour
         RestoreOriginalLayers();
     }
 
-    public void MoveVisibilityToward(float targetVisibility, float fadeSeconds)
+    public void MoveVisibilityToward(
+        float targetVisibility,
+        float fadeSeconds,
+        float fadeInRotationVariation = 0f)
     {
         EnsureInitialized();
 
+        bool shouldFadeIn = targetVisibility > visibility;
+        if (shouldFadeIn && !isFadingIn && fadeInRotationVariation > 0f)
+        {
+            float yawOffset = Random.Range(-fadeInRotationVariation, fadeInRotationVariation);
+            transform.localRotation *= Quaternion.Euler(0f, yawOffset, 0f);
+        }
+
         float speed = fadeSeconds <= 0f ? 1f : Time.deltaTime / fadeSeconds;
         SetVisibility(Mathf.MoveTowards(visibility, targetVisibility, speed));
+        isFadingIn = targetVisibility > visibility;
     }
 
     public void SetVisibility(float value)
@@ -56,6 +68,20 @@ public class TrainingAnimalVisual : MonoBehaviour
     {
         EnsureInitialized();
         transform.SetLocalPositionAndRotation(startingLocalPosition, startingLocalRotation);
+    }
+
+    public void CopyStartingPoseFrom(TrainingAnimalVisual source)
+    {
+        if (source == null) return;
+
+        source.EnsureInitialized();
+        EnsureInitialized();
+
+        startingLocalPosition = source.startingLocalPosition;
+        startingLocalRotation = source.startingLocalRotation;
+        originalScale = source.originalScale;
+        ResetToStartingPosition();
+        transform.localScale = originalScale;
     }
 
     private void ApplyAlpha(float alpha)

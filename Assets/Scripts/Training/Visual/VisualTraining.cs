@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 
 public class VisualTraining : TrainingMode
 {
@@ -9,12 +10,15 @@ public class VisualTraining : TrainingMode
     [Header("Animal Feedback")]
     [SerializeField] private GameObject[] trainingAnimals;
     [SerializeField, Range(0f, 30f)] private float focusSecondsBeforeAnimalsAppear = 5f;
+    [SerializeField, Range(0.1f, 30f)] private float additionalSetSpawnInterval = 5f;
     [SerializeField, Range(0.1f, 5f)] private float fadeInSeconds = 0.75f;
     [SerializeField, Range(0.1f, 5f)] private float fadeOutSeconds = 2f;
+    [SerializeField, Range(0f, 45f)] private float fadeInRotationVariation = 20f;
 
-    private TrainingAnimalVisual[] animalVisuals;
+    private TrainingAnimalVisual[] originalAnimalVisuals;
+    private readonly List<TrainingAnimalVisual[]> animalSets = new();
     private float focusTimer;
-    private bool animalsHaveAppeared;
+    private bool animalSetsHaveAppeared;
     private bool positionsResetAfterFade;
 
     private void Awake()
@@ -58,16 +62,27 @@ public class VisualTraining : TrainingMode
             return;
         }
 
-        // The five-second dwell gates the first appearance. If focus returns
-        // during a fade-out, animalsHaveAppeared is still true, so the fade
-        // reverses immediately instead of requiring another five seconds.
-        if (!animalsHaveAppeared)
+        focusTimer += Time.deltaTime;
+        float spawnInterval = animalSetsHaveAppeared
+            ? additionalSetSpawnInterval
+            : Mathf.Max(0.01f, focusSecondsBeforeAnimalsAppear);
+
+        if (focusTimer >= spawnInterval)
         {
-            focusTimer += Time.deltaTime;
-            animalsHaveAppeared = focusTimer >= focusSecondsBeforeAnimalsAppear;
+            focusTimer -= spawnInterval;
+
+            if (!animalSetsHaveAppeared)
+            {
+                animalSetsHaveAppeared = true;
+            }
+            else
+            {
+                SpawnAnimalSet();
+            }
         }
 
-        FadeAnimalsToward(animalsHaveAppeared);
+        // Refocusing during a fade restores every existing set immediately.
+        FadeAnimalsToward(animalSetsHaveAppeared);
     }
 
     public override void ResetTrainingUI()
@@ -80,36 +95,60 @@ public class VisualTraining : TrainingMode
     {
         if (trainingAnimals == null)
         {
-            animalVisuals = new TrainingAnimalVisual[0];
+            originalAnimalVisuals = new TrainingAnimalVisual[0];
             return;
         }
 
-        animalVisuals = new TrainingAnimalVisual[trainingAnimals.Length];
+        originalAnimalVisuals = new TrainingAnimalVisual[trainingAnimals.Length];
 
         for (int i = 0; i < trainingAnimals.Length; i++)
         {
             GameObject animal = trainingAnimals[i];
             if (animal == null) continue;
 
-            TrainingAnimalWalker walker = animal.GetComponent<TrainingAnimalWalker>();
-            if (walker == null)
-            {
-                animal.AddComponent<TrainingAnimalWalker>();
-            }
-
-            TrainingAnimalVisual visual = animal.GetComponent<TrainingAnimalVisual>();
-            if (visual == null)
-            {
-                visual = animal.AddComponent<TrainingAnimalVisual>();
-            }
-
-            animalVisuals[i] = visual;
+            originalAnimalVisuals[i] = PrepareAnimal(animal);
         }
+
+        animalSets.Add(originalAnimalVisuals);
+    }
+
+    private static TrainingAnimalVisual PrepareAnimal(GameObject animal)
+    {
+        if (animal.GetComponent<TrainingAnimalWalker>() == null)
+        {
+            animal.AddComponent<TrainingAnimalWalker>();
+        }
+
+        TrainingAnimalVisual visual = animal.GetComponent<TrainingAnimalVisual>();
+        return visual != null ? visual : animal.AddComponent<TrainingAnimalVisual>();
+    }
+
+    private void SpawnAnimalSet()
+    {
+        TrainingAnimalVisual[] newSet = new TrainingAnimalVisual[trainingAnimals.Length];
+        int setNumber = animalSets.Count + 1;
+
+        for (int i = 0; i < trainingAnimals.Length; i++)
+        {
+            GameObject sourceAnimal = trainingAnimals[i];
+            TrainingAnimalVisual sourceVisual = originalAnimalVisuals[i];
+            if (sourceAnimal == null || sourceVisual == null) continue;
+
+            GameObject copy = Instantiate(sourceAnimal, sourceAnimal.transform.parent);
+            copy.name = $"{sourceAnimal.name} (Training Set {setNumber})";
+
+            TrainingAnimalVisual copyVisual = PrepareAnimal(copy);
+            copyVisual.CopyStartingPoseFrom(sourceVisual);
+            copyVisual.SetVisibility(0f);
+            newSet[i] = copyVisual;
+        }
+
+        animalSets.Add(newSet);
     }
 
     private void FadeAnimalsToward(bool shouldBeVisible)
     {
-        if (animalVisuals == null)
+        if (originalAnimalVisuals == null)
         {
             return;
         }
@@ -121,45 +160,59 @@ public class VisualTraining : TrainingMode
 
         bool allAnimalsHidden = true;
 
-        for (int i = 0; i < animalVisuals.Length; i++)
+        foreach (TrainingAnimalVisual[] animalSet in animalSets)
         {
-            TrainingAnimalVisual visual = animalVisuals[i];
-            if (visual == null) continue;
+            foreach (TrainingAnimalVisual visual in animalSet)
+            {
+                if (visual == null) continue;
 
-            float targetVisibility = shouldBeVisible ? 1f : 0f;
-            float fadeSeconds = targetVisibility > visual.Visibility ? fadeInSeconds : fadeOutSeconds;
-            visual.MoveVisibilityToward(targetVisibility, fadeSeconds);
-            allAnimalsHidden &= visual.Visibility <= 0f;
+                float targetVisibility = shouldBeVisible ? 1f : 0f;
+                float fadeSeconds = targetVisibility > visual.Visibility ? fadeInSeconds : fadeOutSeconds;
+                visual.MoveVisibilityToward(targetVisibility, fadeSeconds, fadeInRotationVariation);
+                allAnimalsHidden &= visual.Visibility <= 0f;
+            }
         }
 
         if (!shouldBeVisible && allAnimalsHidden && !positionsResetAfterFade)
         {
-            ResetAnimalPositions();
+            ResetToOriginalAnimalSet();
             focusTimer = 0f;
-            animalsHaveAppeared = false;
+            animalSetsHaveAppeared = false;
             positionsResetAfterFade = true;
         }
     }
 
-    private void ResetAnimalPositions()
+    private void ResetToOriginalAnimalSet()
     {
-        foreach (TrainingAnimalVisual visual in animalVisuals)
+        for (int setIndex = animalSets.Count - 1; setIndex >= 1; setIndex--)
         {
-            if (visual != null)
+            foreach (TrainingAnimalVisual visual in animalSets[setIndex])
             {
-                visual.ResetToStartingPosition();
+                if (visual != null)
+                {
+                    Destroy(visual.gameObject);
+                }
             }
+
+            animalSets.RemoveAt(setIndex);
+        }
+
+        foreach (TrainingAnimalVisual visual in originalAnimalVisuals)
+        {
+            if (visual != null) visual.ResetToStartingPosition();
         }
     }
 
     private void HideAnimalsImmediately()
     {
-        if (animalVisuals == null)
+        if (originalAnimalVisuals == null)
         {
             return;
         }
 
-        foreach (TrainingAnimalVisual visual in animalVisuals)
+        ResetToOriginalAnimalSet();
+
+        foreach (TrainingAnimalVisual visual in originalAnimalVisuals)
         {
             if (visual != null)
             {
@@ -169,7 +222,7 @@ public class VisualTraining : TrainingMode
         }
 
         focusTimer = 0f;
-        animalsHaveAppeared = false;
+        animalSetsHaveAppeared = false;
         positionsResetAfterFade = true;
     }
 }
