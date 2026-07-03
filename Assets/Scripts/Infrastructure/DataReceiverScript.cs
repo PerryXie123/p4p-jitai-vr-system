@@ -8,23 +8,22 @@ using UnityEngine;
 
 public class DataReceiverScript : MonoBehaviour
 {
-    [Header("UDP Input")]
+    [Header("TCP Input")]
     [SerializeField] private int port = 5005;
 
     [Header("Focus Thresholds")]
     [SerializeField, Range(0f, 1f)] private float hrvThreshold = 0.5f;
-    [SerializeField, Range(0f, 1f)] private float eyeGazeThreshold = 0.5f;
 
     [Header("Consumers")]
     [SerializeField] private AuditoryTraining auditoryTraining;
 
-    private UdpClient udpClient;
+    private TcpListener tcpListener;
+    private TcpClient tcpClient;
     private Thread receiveThread;
     private volatile bool isRunning;
     private readonly object dataLock = new object();
 
     private float hrvValue;
-    private float eyeGazeValue;
     private bool hasReceivedData;
     private bool isLookingAtOrb;
 
@@ -33,14 +32,6 @@ public class DataReceiverScript : MonoBehaviour
         get
         {
             lock (dataLock) return hrvValue;
-        }
-    }
-
-    public float EyeGazeValue
-    {
-        get
-        {
-            lock (dataLock) return eyeGazeValue;
         }
     }
 
@@ -61,7 +52,6 @@ public class DataReceiverScript : MonoBehaviour
     }
 
     public bool IsHrvPassing => HasReceivedData && HrvValue < hrvThreshold;
-    public bool IsEyeGazePassing => HasReceivedData && EyeGazeValue > eyeGazeThreshold;
     public bool IsFocused => GetPassingCheckCount() >= 2;
 
     private void Awake()
@@ -97,7 +87,6 @@ public class DataReceiverScript : MonoBehaviour
         int passingChecks = 0;
 
         if (IsHrvPassing) passingChecks++;
-        if (IsEyeGazePassing) passingChecks++;
         if (IsLookingAtOrb) passingChecks++;
 
         return passingChecks;
@@ -107,12 +96,10 @@ public class DataReceiverScript : MonoBehaviour
     {
         return string.Format(
             CultureInfo.InvariantCulture,
-            "{0}\n<size=70%>HRV: {1:0.00} {2}\nEye gaze: {3:0.00} {4}\nOrb: {5}</size>",
+            "{0}\n<size=70%>HRV: {1:0.00} {2}\nOrb: {3}</size>",
             IsFocused ? "Focused" : "Not Focused",
             HrvValue,
             IsHrvPassing ? "pass" : "fail",
-            EyeGazeValue,
-            IsEyeGazePassing ? "pass" : "fail",
             IsLookingAtOrb ? "pass" : "fail");
     }
 
@@ -120,14 +107,15 @@ public class DataReceiverScript : MonoBehaviour
     {
         try
         {
-            udpClient = new UdpClient(port);
+            tcpListener = new TcpListener(IPAddress.Any, port);
+            tcpListener.Start();
             isRunning = true;
-            receiveThread = new Thread(ReceiveLoop)
+            receiveThread = new Thread(ListenLoop)
             {
                 IsBackground = true
             };
             receiveThread.Start();
-            Debug.Log("Data receiver listening on UDP port " + port, this);
+            Debug.Log("Data receiver listening on TCP port " + port, this);
         }
         catch (Exception ex)
         {
@@ -138,8 +126,10 @@ public class DataReceiverScript : MonoBehaviour
     private void StopReceiver()
     {
         isRunning = false;
-        udpClient?.Close();
-        udpClient = null;
+        tcpClient?.Close();
+        tcpClient = null;
+        tcpListener?.Stop();
+        tcpListener = null;
 
         if (receiveThread != null && receiveThread.IsAlive)
         {
@@ -147,35 +137,68 @@ public class DataReceiverScript : MonoBehaviour
         }
     }
 
-    private void ReceiveLoop()
+    private void ListenLoop()
     {
-        IPEndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
-
         while (isRunning)
         {
             try
             {
-                byte[] bytes = udpClient.Receive(ref remoteEndPoint);
-                string message = Encoding.UTF8.GetString(bytes);
-                SensorFrame frame = ParseSensorFrame(message);
-
-                lock (dataLock)
-                {
-                    hrvValue = Clamp01(frame.hrv);
-                    eyeGazeValue = Clamp01(frame.eyeGaze);
-                    hasReceivedData = true;
-                }
+                tcpClient = tcpListener.AcceptTcpClient();
+                Debug.Log("Sensor sender connected.", this);
+                ReceiveClient(tcpClient);
             }
             catch (SocketException)
             {
                 if (isRunning)
                 {
-                    Debug.LogWarning("Socket error while receiving sensor data.");
+                    Debug.LogWarning("TCP socket error while receiving sensor data.");
                 }
             }
             catch (Exception ex)
             {
                 Debug.LogWarning("Invalid sensor frame: " + ex.Message);
+            }
+            finally
+            {
+                tcpClient?.Close();
+                tcpClient = null;
+            }
+        }
+    }
+
+    private void ReceiveClient(TcpClient client)
+    {
+        NetworkStream stream = client.GetStream();
+        byte[] buffer = new byte[4096];
+        StringBuilder pending = new StringBuilder();
+
+        while (isRunning)
+        {
+            int bytesRead = stream.Read(buffer, 0, buffer.Length);
+            if (bytesRead == 0) break;
+
+            pending.Append(Encoding.UTF8.GetString(buffer, 0, bytesRead));
+            DispatchCompleteFrames(pending);
+        }
+    }
+
+    private void DispatchCompleteFrames(StringBuilder pending)
+    {
+        while (true)
+        {
+            string bufferedText = pending.ToString();
+            int newlineIndex = bufferedText.IndexOf('\n');
+            if (newlineIndex < 0) return;
+
+            string message = bufferedText.Substring(0, newlineIndex).Trim();
+            pending.Remove(0, newlineIndex + 1);
+            if (message.Length == 0) continue;
+
+            SensorFrame frame = ParseSensorFrame(message);
+            lock (dataLock)
+            {
+                hrvValue = Clamp01(frame.hrv);
+                hasReceivedData = true;
             }
         }
     }
@@ -202,10 +225,6 @@ public class DataReceiverScript : MonoBehaviour
             if (key == "hrv")
             {
                 frame.hrv = value;
-            }
-            else if (key == "eyeGaze")
-            {
-                frame.eyeGaze = value;
             }
         }
 
@@ -236,6 +255,5 @@ public class DataReceiverScript : MonoBehaviour
     private struct SensorFrame
     {
         public float hrv;
-        public float eyeGaze;
     }
 }

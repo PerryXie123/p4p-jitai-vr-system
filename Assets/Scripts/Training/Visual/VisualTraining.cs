@@ -58,9 +58,9 @@ public class VisualTraining : TrainingMode
             return;
         }
 
-        // Once the animals have appeared, refocusing during their fade brings
-        // them straight back. A fresh five-second dwell is only required after
-        // they have completely faded and returned to their starting positions.
+        // The five-second dwell gates the first appearance. If focus returns
+        // during a fade-out, animalsHaveAppeared is still true, so the fade
+        // reverses immediately instead of requiring another five seconds.
         if (!animalsHaveAppeared)
         {
             focusTimer += Time.deltaTime;
@@ -168,8 +168,8 @@ public class VisualTraining : TrainingMode
             }
         }
 
-        positionsResetAfterFade = true;
         focusTimer = 0f;
         animalsHaveAppeared = false;
+        positionsResetAfterFade = true;
     }
 }

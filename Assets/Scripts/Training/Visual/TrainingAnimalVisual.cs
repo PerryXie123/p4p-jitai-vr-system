@@ -48,7 +48,7 @@ public class TrainingAnimalVisual : MonoBehaviour
             gameObject.SetActive(shouldBeActive);
         }
 
-        transform.localScale = originalScale * Mathf.Lerp(0.85f, 1f, visibility);
+        transform.localScale = originalScale;
         ApplyAlpha(visibility);
     }
 
@@ -121,13 +121,45 @@ public class TrainingAnimalVisual : MonoBehaviour
         isInitialized = true;
     }
 
+    private void MoveHierarchyToIgnoreRaycastLayer()
+    {
+        int ignoreRaycastLayer = LayerMask.NameToLayer("Ignore Raycast");
+        if (ignoreRaycastLayer < 0)
+        {
+            Debug.LogWarning("The Ignore Raycast layer is unavailable; animals may block eye gaze.", this);
+            return;
+        }
+
+        hierarchyTransforms = GetComponentsInChildren<Transform>(true);
+        originalLayers = new int[hierarchyTransforms.Length];
+
+        for (int i = 0; i < hierarchyTransforms.Length; i++)
+        {
+            GameObject hierarchyObject = hierarchyTransforms[i].gameObject;
+            originalLayers[i] = hierarchyObject.layer;
+            hierarchyObject.layer = ignoreRaycastLayer;
+        }
+    }
+
+    private void RestoreOriginalLayers()
+    {
+        if (hierarchyTransforms == null || originalLayers == null) return;
+
+        for (int i = 0; i < hierarchyTransforms.Length && i < originalLayers.Length; i++)
+        {
+            if (hierarchyTransforms[i] != null)
+            {
+                hierarchyTransforms[i].gameObject.layer = originalLayers[i];
+            }
+        }
+    }
+
     private static void ConfigureForTransparency(Material material)
     {
         if (material == null) return;
 
-        // URP/Lit materials ignore colour alpha while their surface type is opaque.
-        // These are per-renderer material instances, so this does not modify the
-        // shared material asset used elsewhere in the scene.
+        // URP/Lit ignores colour alpha while the material is opaque. Renderer.materials
+        // gives us instances, so these changes do not affect the shared material asset.
         if (material.HasProperty("_Surface"))
         {
             material.SetFloat("_Surface", 1f);
@@ -144,7 +176,7 @@ public class TrainingAnimalVisual : MonoBehaviour
             return;
         }
 
-        // Fallback for built-in Standard materials.
+        // Built-in Standard shader fallback.
         if (material.HasProperty("_Mode"))
         {
             material.SetFloat("_Mode", 2f);
@@ -156,34 +188,6 @@ public class TrainingAnimalVisual : MonoBehaviour
             material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
             material.SetOverrideTag("RenderType", "Transparent");
             material.renderQueue = (int)RenderQueue.Transparent;
-        }
-    }
-
-    private void MoveHierarchyToIgnoreRaycastLayer()
-    {
-        int ignoreRaycastLayer = LayerMask.NameToLayer("Ignore Raycast");
-        if (ignoreRaycastLayer < 0) return;
-
-        hierarchyTransforms = GetComponentsInChildren<Transform>(true);
-        originalLayers = new int[hierarchyTransforms.Length];
-
-        for (int i = 0; i < hierarchyTransforms.Length; i++)
-        {
-            originalLayers[i] = hierarchyTransforms[i].gameObject.layer;
-            hierarchyTransforms[i].gameObject.layer = ignoreRaycastLayer;
-        }
-    }
-
-    private void RestoreOriginalLayers()
-    {
-        if (hierarchyTransforms == null || originalLayers == null) return;
-
-        for (int i = 0; i < hierarchyTransforms.Length && i < originalLayers.Length; i++)
-        {
-            if (hierarchyTransforms[i] != null)
-            {
-                hierarchyTransforms[i].gameObject.layer = originalLayers[i];
-            }
         }
     }
 }
