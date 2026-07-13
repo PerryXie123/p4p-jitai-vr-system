@@ -116,7 +116,6 @@ public class DataReceiverScript : MonoBehaviour
             if (tcpServer != null) { return; }
 
             tcpServer = new TcpGameServer<VitalSnapshot>();
-            tcpServer.SetOnReceivedCallback(OnVitalSnapshotReceived);
             tcpServer.InitConnection();
         }
         catch (Exception ex)
@@ -133,6 +132,18 @@ public class DataReceiverScript : MonoBehaviour
 
     private void Update()
     {
+        if (tcpServer != null)
+        {
+            lock (dataLock)
+            {
+                while (tcpServer.TryGetMessage(out VitalSnapshot snapshot))
+                {
+                    vitalSnapshot = snapshot;
+                    hasReceivedData = true;
+                }
+            }
+        }
+
         UpdateConsumers();
     }
 
@@ -141,20 +152,6 @@ public class DataReceiverScript : MonoBehaviour
         if (auditoryTraining != null)
         {
             auditoryTraining.SetFocus(IsFocused);
-        }
-    }
-
-    private void OnVitalSnapshotReceived()
-    {
-        lock (dataLock)
-        {
-            Debug.Log("Received VitalSnapshot data from TCP server.");
-            if (tcpServer.TryGetMessage(out VitalSnapshot snapshot))
-            {
-                vitalSnapshot = snapshot;
-                hasReceivedData = true;
-            }
-
         }
     }
 }

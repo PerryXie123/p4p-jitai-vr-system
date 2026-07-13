@@ -24,8 +24,6 @@ namespace Assets.Scripts.SignalProcessing
 
         private readonly ConcurrentQueue<T> messageQueue;
         private readonly ConcurrentQueue<string> statusQueue;
-        public delegate void OnReceivedCallback();
-        private OnReceivedCallback onReceivedCallback;
 
         public TcpGameServer()
         {
@@ -156,11 +154,6 @@ namespace Assets.Scripts.SignalProcessing
                     Debug.Log($"Received message: {message}");
                     T parsedMessage = ParseJsonToObject(message);
                     messageQueue.Enqueue(parsedMessage);
-
-                    if (onReceivedCallback != null)
-                    {
-                        onReceivedCallback();
-                    }
                 }
                 catch
                 {
@@ -195,11 +188,6 @@ namespace Assets.Scripts.SignalProcessing
             recievingThread?.Join(2500);
             Debug.Log("Connection TCP Closed");
             statusQueue.Enqueue("Connection TCP Closed");
-        }
-
-        public void SetOnReceivedCallback(OnReceivedCallback callback)
-        {
-            onReceivedCallback = callback;
         }
     }
 }
