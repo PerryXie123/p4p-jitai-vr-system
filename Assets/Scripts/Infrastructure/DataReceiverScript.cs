@@ -18,7 +18,7 @@ public class DataReceiverScript : MonoBehaviour
     private bool hasReceivedData;
     private bool isLookingAtOrb;
 
-    public VitalSnapshot HrvValue
+    public VitalSnapshot CurrentVitals
     {
         get
         {
@@ -42,18 +42,22 @@ public class DataReceiverScript : MonoBehaviour
         }
     }
 
-    public bool IsHrvPassing => HasReceivedData && HrvPassingCheck();
-
     /**
      * Logic to determine if the vitals indicate a focused/calm state.
      *
      * TODO: Implement a more sophisticated check based on HRV metrics
      * (RMSSD/PNN50) rather than heart rate alone.
      */
-    private bool HrvPassingCheck()
+    public bool AreVitalsPassing()
     {
-        return HrvValue.HeartRate <= maxRestingHeartRate;
+        if (!HasReceivedData)
+        {
+            return false;
+        }
+
+        return CurrentVitals.HeartRate <= maxRestingHeartRate;
     }
+
     public bool IsFocused => GetPassingCheckCount() >= 2;
 
     private void Awake()
@@ -88,7 +92,7 @@ public class DataReceiverScript : MonoBehaviour
     {
         int passingChecks = 0;
 
-        if (IsHrvPassing) passingChecks++;
+        if (AreVitalsPassing()) passingChecks++;
         if (IsLookingAtOrb) passingChecks++;
 
         return passingChecks;
@@ -100,8 +104,8 @@ public class DataReceiverScript : MonoBehaviour
             CultureInfo.InvariantCulture,
             "{0}\n<size=70%>HR: {1} {2}\nOrb: {3}</size>",
             IsFocused ? "Focused" : "Not Focused",
-            HrvValue == null ? "—" : HrvValue.HeartRate.ToString("0"),
-            IsHrvPassing ? "pass" : "fail",
+            CurrentVitals == null ? "—" : CurrentVitals.HeartRate.ToString("0"),
+            AreVitalsPassing() ? "pass" : "fail",
             IsLookingAtOrb ? "pass" : "fail");
     }
 
