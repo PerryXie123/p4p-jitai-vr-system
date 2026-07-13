@@ -3,7 +3,7 @@
 namespace Assets.Scripts.SignalProcessing
 {
     [Serializable]
-    internal class VitalSnapshot
+    public class VitalSnapshot
     {
         public float HeartRate;
         public float MeanNN;

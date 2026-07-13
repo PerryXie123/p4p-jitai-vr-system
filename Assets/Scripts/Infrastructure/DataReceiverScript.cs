@@ -1,3 +1,4 @@
+using Assets.Scripts.SignalProcessing;
 using System;
 using System.Globalization;
 using System.Net;
@@ -17,21 +18,18 @@ public class DataReceiverScript : MonoBehaviour
     [Header("Consumers")]
     [SerializeField] private AuditoryTraining auditoryTraining;
 
-    private TcpListener tcpListener;
-    private TcpClient tcpClient;
-    private Thread receiveThread;
-    private volatile bool isRunning;
+    private TcpGameServer<VitalSnapshot> tcpServer;
     private readonly object dataLock = new object();
 
-    private float hrvValue;
+    private VitalSnapshot vitalSnapshot;
     private bool hasReceivedData;
     private bool isLookingAtOrb;
 
-    public float HrvValue
+    public VitalSnapshot HrvValue
     {
         get
         {
-            lock (dataLock) return hrvValue;
+            lock (dataLock) return vitalSnapshot;
         }
     }
 
@@ -51,7 +49,17 @@ public class DataReceiverScript : MonoBehaviour
         }
     }
 
-    public bool IsHrvPassing => HasReceivedData && HrvValue < hrvThreshold;
+    public bool IsHrvPassing => HasReceivedData && HrvPassingCheck();
+
+    /**
+     * Logic to determine if the HRV value is passing the threshold.
+     * 
+     * TODO: Implement a more sophisticated check based on the HRV value and the threshold.
+     */
+    private bool HrvPassingCheck()
+    {
+        return HrvValue.HeartRate <= 100;
+    }
     public bool IsFocused => GetPassingCheckCount() >= 2;
 
     private void Awake()
@@ -98,7 +106,7 @@ public class DataReceiverScript : MonoBehaviour
             CultureInfo.InvariantCulture,
             "{0}\n<size=70%>HRV: {1:0.00} {2}\nOrb: {3}</size>",
             IsFocused ? "Focused" : "Not Focused",
-            HrvValue,
+            HrvValue == null? "HRV Unknown" : HrvValue.PrintVitals(),
             IsHrvPassing ? "pass" : "fail",
             IsLookingAtOrb ? "pass" : "fail");
     }
@@ -107,15 +115,11 @@ public class DataReceiverScript : MonoBehaviour
     {
         try
         {
-            tcpListener = new TcpListener(IPAddress.Any, port);
-            tcpListener.Start();
-            isRunning = true;
-            receiveThread = new Thread(ListenLoop)
-            {
-                IsBackground = true
-            };
-            receiveThread.Start();
-            Debug.Log("Data receiver listening on TCP port " + port, this);
+            if (tcpServer != null) { return; }
+
+            tcpServer = new TcpGameServer<VitalSnapshot>();
+            tcpServer.SetOnReceivedCallback(OnVitalSnapshotReceived);
+            tcpServer.InitConnection();
         }
         catch (Exception ex)
         {
@@ -125,118 +129,9 @@ public class DataReceiverScript : MonoBehaviour
 
     private void StopReceiver()
     {
-        isRunning = false;
-        tcpClient?.Close();
-        tcpClient = null;
-        tcpListener?.Stop();
-        tcpListener = null;
-
-        if (receiveThread != null && receiveThread.IsAlive)
-        {
-            receiveThread.Join(100);
-        }
+        tcpServer?.CloseSocket();
     }
 
-    private void ListenLoop()
-    {
-        while (isRunning)
-        {
-            try
-            {
-                tcpClient = tcpListener.AcceptTcpClient();
-                Debug.Log("Sensor sender connected.", this);
-                ReceiveClient(tcpClient);
-            }
-            catch (SocketException)
-            {
-                if (isRunning)
-                {
-                    Debug.LogWarning("TCP socket error while receiving sensor data.");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning("Invalid sensor frame: " + ex.Message);
-            }
-            finally
-            {
-                tcpClient?.Close();
-                tcpClient = null;
-            }
-        }
-    }
-
-    private void ReceiveClient(TcpClient client)
-    {
-        NetworkStream stream = client.GetStream();
-        byte[] buffer = new byte[4096];
-        StringBuilder pending = new StringBuilder();
-
-        while (isRunning)
-        {
-            int bytesRead = stream.Read(buffer, 0, buffer.Length);
-            if (bytesRead == 0) break;
-
-            pending.Append(Encoding.UTF8.GetString(buffer, 0, bytesRead));
-            DispatchCompleteFrames(pending);
-        }
-    }
-
-    private void DispatchCompleteFrames(StringBuilder pending)
-    {
-        while (true)
-        {
-            string bufferedText = pending.ToString();
-            int newlineIndex = bufferedText.IndexOf('\n');
-            if (newlineIndex < 0) return;
-
-            string message = bufferedText.Substring(0, newlineIndex).Trim();
-            pending.Remove(0, newlineIndex + 1);
-            if (message.Length == 0) continue;
-
-            SensorFrame frame = ParseSensorFrame(message);
-            lock (dataLock)
-            {
-                hrvValue = Clamp01(frame.hrv);
-                hasReceivedData = true;
-            }
-        }
-    }
-
-    private static SensorFrame ParseSensorFrame(string message)
-    {
-        SensorFrame frame = new SensorFrame();
-        string trimmedMessage = message.Trim().Trim('{', '}');
-        string[] pairs = trimmedMessage.Split(',');
-
-        foreach (string pair in pairs)
-        {
-            string[] keyValue = pair.Split(':');
-            if (keyValue.Length != 2) continue;
-
-            string key = keyValue[0].Trim().Trim('"');
-            string valueText = keyValue[1].Trim();
-
-            if (!float.TryParse(valueText, NumberStyles.Float, CultureInfo.InvariantCulture, out float value))
-            {
-                continue;
-            }
-
-            if (key == "hrv")
-            {
-                frame.hrv = value;
-            }
-        }
-
-        return frame;
-    }
-
-    private static float Clamp01(float value)
-    {
-        if (value < 0f) return 0f;
-        if (value > 1f) return 1f;
-        return value;
-    }
 
     private void Update()
     {
@@ -251,9 +146,22 @@ public class DataReceiverScript : MonoBehaviour
         }
     }
 
-    [Serializable]
-    private struct SensorFrame
+    private void OnVitalSnapshotReceived()
     {
-        public float hrv;
+        lock (dataLock)
+        {
+            Debug.Log("Received VitalSnapshot data from TCP server.");
+            if (tcpServer.TryGetMessage(out VitalSnapshot snapshot))
+            {
+                vitalSnapshot = snapshot;
+
+                if (!hasReceivedData)
+                {
+                    hasReceivedData = true;
+                }
+
+            }
+
+        }
     }
 }
