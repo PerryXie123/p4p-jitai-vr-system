@@ -1,19 +1,12 @@
 using Assets.Scripts.SignalProcessing;
 using System;
 using System.Globalization;
-using System.Net;
-using System.Net.Sockets;
-using System.Text;
-using System.Threading;
 using UnityEngine;
 
 public class DataReceiverScript : MonoBehaviour
 {
-    [Header("TCP Input")]
-    [SerializeField] private int port = 5005;
-
     [Header("Focus Thresholds")]
-    [SerializeField, Range(0f, 1f)] private float hrvThreshold = 0.5f;
+    [SerializeField] private float maxRestingHeartRate = 100f;
 
     [Header("Consumers")]
     [SerializeField] private AuditoryTraining auditoryTraining;
@@ -52,13 +45,14 @@ public class DataReceiverScript : MonoBehaviour
     public bool IsHrvPassing => HasReceivedData && HrvPassingCheck();
 
     /**
-     * Logic to determine if the HRV value is passing the threshold.
-     * 
-     * TODO: Implement a more sophisticated check based on the HRV value and the threshold.
+     * Logic to determine if the vitals indicate a focused/calm state.
+     *
+     * TODO: Implement a more sophisticated check based on HRV metrics
+     * (RMSSD/PNN50) rather than heart rate alone.
      */
     private bool HrvPassingCheck()
     {
-        return HrvValue.HeartRate <= 100;
+        return HrvValue.HeartRate <= maxRestingHeartRate;
     }
     public bool IsFocused => GetPassingCheckCount() >= 2;
 
@@ -104,9 +98,9 @@ public class DataReceiverScript : MonoBehaviour
     {
         return string.Format(
             CultureInfo.InvariantCulture,
-            "{0}\n<size=70%>HRV: {1:0.00} {2}\nOrb: {3}</size>",
+            "{0}\n<size=70%>HR: {1} {2}\nOrb: {3}</size>",
             IsFocused ? "Focused" : "Not Focused",
-            HrvValue == null? "HRV Unknown" : HrvValue.PrintVitals(),
+            HrvValue == null ? "—" : HrvValue.HeartRate.ToString("0"),
             IsHrvPassing ? "pass" : "fail",
             IsLookingAtOrb ? "pass" : "fail");
     }
@@ -154,12 +148,7 @@ public class DataReceiverScript : MonoBehaviour
             if (tcpServer.TryGetMessage(out VitalSnapshot snapshot))
             {
                 vitalSnapshot = snapshot;
-
-                if (!hasReceivedData)
-                {
-                    hasReceivedData = true;
-                }
-
+                hasReceivedData = true;
             }
 
         }
