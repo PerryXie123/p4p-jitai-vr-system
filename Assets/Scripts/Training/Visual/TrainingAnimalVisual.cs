@@ -194,7 +194,7 @@ public class TrainingAnimalVisual : MonoBehaviour
             material.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
             material.SetFloat("_SrcBlendAlpha", (float)BlendMode.One);
             material.SetFloat("_DstBlendAlpha", (float)BlendMode.OneMinusSrcAlpha);
-            material.SetFloat("_ZWrite", 0f);
+            material.SetFloat("_ZWrite", 1f);
             material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
             material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
             material.SetOverrideTag("RenderType", "Transparent");
@@ -208,7 +208,7 @@ public class TrainingAnimalVisual : MonoBehaviour
             material.SetFloat("_Mode", 2f);
             material.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
             material.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
-            material.SetFloat("_ZWrite", 0f);
+            material.SetFloat("_ZWrite", 1f);
             material.DisableKeyword("_ALPHATEST_ON");
             material.EnableKeyword("_ALPHABLEND_ON");
             material.DisableKeyword("_ALPHAPREMULTIPLY_ON");

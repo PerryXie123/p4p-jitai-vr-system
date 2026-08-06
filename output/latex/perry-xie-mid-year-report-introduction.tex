@@ -1,0 +1,140 @@
+\documentclass[11pt,a4paper]{article}
+
+% Page and text formatting follow the supplied literature review.
+\usepackage[a4paper,top=25.6mm,right=25.4mm,bottom=12.5mm,left=25.4mm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{newtxtext,newtxmath}
+\usepackage{setspace}
+\usepackage{microtype}
+\usepackage[hidelinks]{hyperref}
+\usepackage{enumitem}
+
+\setstretch{1.15}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.75em}
+\setlist[itemize]{leftmargin=1.7em,itemsep=0.3em,topsep=0.25em}
+\renewcommand{\contentsname}{Table of Contents}
+
+\begin{document}
+
+\begin{titlepage}
+    \centering
+    \vspace*{1.2cm}
+
+    {\fontsize{28}{34}\selectfont An XR System for Concentration Training Under Exam Conditions\par}
+    \vspace{0.8cm}
+    {\fontsize{16}{20}\selectfont\bfseries Mid-Year Progress Report\par}
+
+    \vspace{1.8cm}
+    {\fontsize{16}{20}\selectfont\bfseries Perry Xie\par}
+
+    \vspace{1.4cm}
+    {\fontsize{14}{18}\selectfont
+    Department of Electrical, Computer, and Software Engineering\par
+    The University of Auckland, Auckland, New Zealand\par}
+
+    \vfill
+    {\fontsize{16}{20}\selectfont\bfseries July 2026\par}
+
+    \vspace{1.4cm}
+    {\fontsize{16}{20}\selectfont
+    Supervisor: Yun Suen Pai\par
+    Project Mentor: Yuzhen Gao\par
+    Project Partner: Weyman Wong\par}
+
+    \vfill
+    \begin{minipage}{0.9\textwidth}
+        \centering\fontsize{10}{13}\selectfont\itshape\sffamily
+        Disclaimer -- This report has been submitted as partial fulfilment of the
+        requirements for the BE(Hons) Part IV research project.
+    \end{minipage}
+\end{titlepage}
+
+\clearpage
+\section*{Declaration of Originality}
+This report is my own unaided work and was not copied from, nor written in
+collaboration with, any other person except where collaboration and sources are
+explicitly acknowledged.
+
+\vspace{2em}
+Name: Perry Xie
+
+\clearpage
+\tableofcontents
+
+\clearpage
+\section{Introduction}
+
+Examinations are a central form of academic assessment, yet the conditions in
+which they are completed can make sustained concentration difficult. Students
+must manage time pressure, cognitive load, and stress while resisting both
+internal distractions, such as mind-wandering, and external distractions, such
+as surrounding movement and noise. When attention shifts away from the task,
+students may not immediately recognise the lapse or successfully redirect their
+focus. This can reduce task performance and limit their ability to demonstrate
+their knowledge under exam conditions \cite{smallwood2015,mooneyham2013}.
+
+Virtual reality (VR) offers a controlled and repeatable way to recreate these
+conditions for attention training. An immersive exam-like environment can
+present realistic auditory and visual distractions while allowing their timing,
+type, and intensity to be manipulated consistently. Physiological and
+behavioural measures can also provide real-time evidence of changes in a user's
+attentional state. In particular, eye-gaze behaviour can indicate whether visual
+attention has moved away from the task, while heart-rate variability can provide
+complementary information about stress and self-regulation. Combining these
+signals creates an opportunity to detect probable attention lapses as they occur,
+rather than relying only on retrospective self-report.
+
+This project investigates an XR concentration-training system designed for
+exam-like conditions. The system combines a VR examination environment,
+controlled visual and auditory distractions, and real-time physiological
+monitoring. It applies the Just-in-Time Adaptive Intervention (JITAI) framework
+to determine when support is required and to deliver a contextually appropriate
+intervention intended to help the user re-engage with the task
+\cite{nahumshani2018}. The central design challenge is to make this feedback
+timely enough to support attention recovery while keeping it subtle enough that
+the intervention does not become an additional distraction.
+
+The aim of the project is to design and evaluate a VR-based biofeedback system
+that helps students regulate attention and maintain focus under simulated exam
+conditions. The work focuses on three connected capabilities: creating a
+realistic distraction-rich VR environment; using eye-gaze and heart-rate data to
+identify changes associated with attention and stress; and implementing adaptive
+feedback that responds to the user's current state. Together, these components
+form a closed-loop training system in which attention is monitored, an
+intervention is selected when required, and the user's subsequent response can
+inform continued adaptation.
+
+This mid-year progress report presents the development completed to date and the
+work planned for the remainder of the project. It describes the system design,
+the implementation of the VR environment and distraction mechanisms, the
+integration of physiological data, and the development of the JITAI feedback
+logic. It also identifies current limitations, technical risks, and the testing
+required before the system can be evaluated against the project's research
+questions.
+
+\begin{thebibliography}{9}
+
+\bibitem{smallwood2015}
+J. Smallwood and J. W. Schooler,
+``The science of mind wandering: Empirically navigating the stream of
+consciousness,''
+\emph{Annual Review of Psychology}, vol. 66, pp. 487--518, 2015.
+
+\bibitem{mooneyham2013}
+B. W. Mooneyham and J. W. Schooler,
+``The costs and benefits of mind-wandering: A review,''
+\emph{Canadian Journal of Experimental Psychology}, vol. 67, no. 1,
+pp. 11--18, 2013.
+
+\bibitem{nahumshani2018}
+I. Nahum-Shani, S. N. Smith, B. J. Spring, L. M. Collins, K. Witkiewitz,
+A. Tewari, and S. A. Murphy,
+``Just-in-time adaptive interventions (JITAIs) in mobile health: Key
+components and design principles for ongoing health behavior support,''
+\emph{Annals of Behavioral Medicine}, vol. 52, no. 6, pp. 446--462, 2018.
+
+\end{thebibliography}
+
+\end{document}

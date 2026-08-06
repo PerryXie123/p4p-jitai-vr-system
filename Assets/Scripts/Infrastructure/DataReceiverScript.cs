@@ -53,6 +53,7 @@ public class DataReceiverScript : MonoBehaviour
 
     public bool IsHrvPassing => HasReceivedData && HrvValue < hrvThreshold;
     public bool IsFocused => GetPassingCheckCount() >= 2;
+    public float HrvThreshold => hrvThreshold;
 
     private void Awake()
     {

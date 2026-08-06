@@ -4,6 +4,7 @@ using UnityEngine.XR.Interaction.Toolkit;
 
 public class FocusUI : MonoBehaviour
 {
+    [SerializeField] private bool showFocusUI = true;
     public TextMeshProUGUI statusText;
     [SerializeField] private DataReceiverScript dataReceiver;
 
@@ -17,6 +18,8 @@ public class FocusUI : MonoBehaviour
         {
             dataReceiver = FindFirstObjectByType<DataReceiverScript>();
         }
+
+        SetStatusTextVisible(showFocusUI);
     }
 
     void OnEnable()
@@ -52,9 +55,27 @@ public class FocusUI : MonoBehaviour
 
     private void RefreshStatus()
     {
+        if (!showFocusUI)
+        {
+            SetStatusTextVisible(false);
+            return;
+        }
+
         if (statusText == null || dataReceiver == null) return;
 
+        SetStatusTextVisible(true);
         statusText.text = dataReceiver.GetStatusText();
         statusText.color = dataReceiver.IsFocused ? Color.green : Color.red;
+    }
+
+    private void SetStatusTextVisible(bool isVisible)
+    {
+        if (statusText == null) return;
+
+        GameObject statusTextObject = statusText.gameObject;
+        if (statusTextObject.activeSelf != isVisible)
+        {
+            statusTextObject.SetActive(isVisible);
+        }
     }
 }

@@ -19,6 +19,7 @@ public class OpenTrainScript : MonoBehaviour
     public void LoadTrain()
     {
         Debug.Log("train pressed");
+        TrainingSessionLogger.StartSession();
         UnityEngine.SceneManagement.SceneManager.LoadScene("Train");
     }
 
@@ -31,7 +32,27 @@ public class OpenTrainScript : MonoBehaviour
     public void LoadMenu()
     {
         Debug.Log("menu pressed");
+        FinalizeActiveTrainingModes();
+        TrainingSessionLogger.EndSession();
         UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
+    }
+
+    private void OnApplicationQuit()
+    {
+        FinalizeActiveTrainingModes();
+        TrainingSessionLogger.EndSession();
+    }
+
+    private void FinalizeActiveTrainingModes()
+    {
+        TrainingMode[] trainingModes = FindObjectsByType<TrainingMode>(FindObjectsSortMode.None);
+        foreach (TrainingMode trainingMode in trainingModes)
+        {
+            if (trainingMode != null && trainingMode.IsTrainingActive)
+            {
+                trainingMode.ResetTrainingUI();
+            }
+        }
     }
 
     public void RemoveUIElement()

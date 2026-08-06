@@ -5685,6 +5685,8 @@ MonoBehaviour:
   startPanel: {fileID: 2076557726}
   finishPanel: {fileID: 1766917575}
   focusText: {fileID: 1272223928}
+  focusDataReceiver: {fileID: 0}
+  trainingDurationSeconds: 30
   dataReceiver: {fileID: 0}
   trainingAnimals:
   - {fileID: 146223585}
@@ -27560,7 +27562,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3da84d72c3ea5ca4b94c6adbec404f11, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
-  showFocusUI: 1
+  showFocusUI: 0
   statusText: {fileID: 1272223930}
   dataReceiver: {fileID: 0}
 --- !u!114 &431494776
@@ -47845,6 +47847,8 @@ MonoBehaviour:
   startPanel: {fileID: 2076557726}
   finishPanel: {fileID: 1766917575}
   focusText: {fileID: 1272223928}
+  focusDataReceiver: {fileID: 0}
+  trainingDurationSeconds: 30
   mainAudio: {fileID: 1813912033}
   mainVolume: 1
   oneShotAudio: {fileID: 1855878539}
@@ -90772,6 +90776,8 @@ MonoBehaviour:
   startPanel: {fileID: 0}
   finishPanel: {fileID: 0}
   focusText: {fileID: 0}
+  focusDataReceiver: {fileID: 0}
+  trainingDurationSeconds: 30
   mainAudio: {fileID: 0}
   mainVolume: 1
   oneShotAudio: {fileID: 0}
