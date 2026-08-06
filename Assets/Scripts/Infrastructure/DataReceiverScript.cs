@@ -6,6 +6,7 @@ using UnityEngine;
 public class DataReceiverScript : MonoBehaviour
 {
     [Header("Focus Thresholds")]
+    [SerializeField, Range(0f, 1f)] private float hrvThreshold = 0.5f;
     [SerializeField] private float maxRestingHeartRate = 100f;
 
     [Header("Consumers")]
