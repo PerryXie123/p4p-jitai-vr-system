@@ -26,7 +26,7 @@ namespace Assets.Scripts.SignalProcessing
         private readonly ConcurrentQueue<string> statusQueue;
 
         public TcpGameServer()
-        {   
+        {
             statusQueue = new ConcurrentQueue<string>();
             messageQueue = new ConcurrentQueue<T>();
         }
@@ -40,7 +40,8 @@ namespace Assets.Scripts.SignalProcessing
                 recievingThread = new Thread(ListenToSocket) { IsBackground = true };
                 recievingThread.Start();
                 statusQueue.Enqueue("Listening...");
-            } catch (Exception e)
+            }
+            catch (Exception e)
             {
                 Debug.LogError($"Failed to connect to server: {e.Message}");
                 statusQueue.Enqueue($"Failed to connect to server: {e.Message}");
@@ -172,10 +173,10 @@ namespace Assets.Scripts.SignalProcessing
             {
                 Debug.LogError($"Failed to parse JSON: {e.Message}");
                 throw;
-            }   
+            }
         }
 
-        
+
         public void CloseSocket()
         {
             running = false;
@@ -188,6 +189,5 @@ namespace Assets.Scripts.SignalProcessing
             Debug.Log("Connection TCP Closed");
             statusQueue.Enqueue("Connection TCP Closed");
         }
-
     }
 }
