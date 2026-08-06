@@ -156,20 +156,21 @@ public static class TrainingSessionLogger
 
         DateTime lastUpdatedAt = runRecords.Count > 0 ? runRecords[runRecords.Count - 1].EndedAt : DateTime.Now;
         int lastRunSheetRow = runRecords.Count + 1;
+        TrainingStatistics statistics = CalculateTrainingStatistics();
 
         sheet.AddRow(2, new[]
         {
             Cell.Text(sessionId),
             Cell.Text(sessionStartedAt.ToString("ddMMyyyy", CultureInfo.InvariantCulture)),
-            Cell.Formula("IFERROR(AVERAGEIF('Training Runs'!$C:$C,\"*auditory*\",'Training Runs'!$G:$G),\"\")"),
-            Cell.Formula("IFERROR(AVERAGEIF('Training Runs'!$C:$C,\"*visual*\",'Training Runs'!$G:$G),\"\")"),
+            Cell.Formula("IFERROR(AVERAGEIF('Training Runs'!$C:$C,\"*auditory*\",'Training Runs'!$G:$G),\"\")", statistics.AuditoryCount > 0 ? statistics.AuditoryDurationAverage : (float?)null),
+            Cell.Formula("IFERROR(AVERAGEIF('Training Runs'!$C:$C,\"*visual*\",'Training Runs'!$G:$G),\"\")", statistics.VisualCount > 0 ? statistics.VisualDurationAverage : (float?)null),
             Cell.Text(sessionStartedAt.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)),
             Cell.Text(lastUpdatedAt.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)),
             Cell.Number(RecencyDecay, 2),
-            runRecords.Count > 0 ? Cell.Formula($"'Training Runs'!L{lastRunSheetRow}") : Cell.Blank(),
-            runRecords.Count > 0 ? Cell.Formula($"'Training Runs'!M{lastRunSheetRow}") : Cell.Blank(),
-            runRecords.Count > 0 ? Cell.Formula($"'Training Runs'!O{lastRunSheetRow}") : Cell.Blank(),
-            runRecords.Count > 0 ? Cell.Formula($"'Training Runs'!P{lastRunSheetRow}") : Cell.Blank()
+            runRecords.Count > 0 ? Cell.Formula($"'Training Runs'!L{lastRunSheetRow}", statistics.AuditoryWeightedSum) : Cell.Blank(),
+            runRecords.Count > 0 ? Cell.Formula($"'Training Runs'!M{lastRunSheetRow}", statistics.AuditoryWeightSum) : Cell.Blank(),
+            runRecords.Count > 0 ? Cell.Formula($"'Training Runs'!O{lastRunSheetRow}", statistics.VisualWeightedSum) : Cell.Blank(),
+            runRecords.Count > 0 ? Cell.Formula($"'Training Runs'!P{lastRunSheetRow}", statistics.VisualWeightSum) : Cell.Blank()
         });
 
         sheet.AddRow(6, new[]
@@ -186,14 +187,18 @@ public static class TrainingSessionLogger
         foreach (TrainingRunRecord record in runRecords)
         {
             int runSheetRow = record.RunNumber + 1;
+            float focusedPercentage = CalculateFocusedPercentage(record);
+            bool isAuditory = IsTrainingMode(record.TrainingType, "auditory");
+            bool isVisual = IsTrainingMode(record.TrainingType, "visual");
+            RunningWeightedAverages running = CalculateRunningWeightedAverages(record.RunNumber);
 
             sheet.AddRow(rowNumber, new[]
             {
                 Cell.Blank(),
-                Cell.Formula($"IF(ISNUMBER(SEARCH(\"auditory\",'Training Runs'!C{runSheetRow})),'Training Runs'!I{runSheetRow},\"\")"),
-                Cell.Formula($"IF(ISNUMBER(SEARCH(\"visual\",'Training Runs'!C{runSheetRow})),'Training Runs'!I{runSheetRow},\"\")"),
-                Cell.Formula($"'Training Runs'!N{runSheetRow}"),
-                Cell.Formula($"'Training Runs'!Q{runSheetRow}"),
+                Cell.Formula($"IF(ISNUMBER(SEARCH(\"auditory\",'Training Runs'!C{runSheetRow})),'Training Runs'!I{runSheetRow},\"\")", isAuditory ? focusedPercentage : (float?)null),
+                Cell.Formula($"IF(ISNUMBER(SEARCH(\"visual\",'Training Runs'!C{runSheetRow})),'Training Runs'!I{runSheetRow},\"\")", isVisual ? focusedPercentage : (float?)null),
+                Cell.Formula($"'Training Runs'!N{runSheetRow}", running.AuditoryWeightSum > 0f ? running.AuditoryAverage : (float?)null),
+                Cell.Formula($"'Training Runs'!Q{runSheetRow}", running.VisualWeightSum > 0f ? running.VisualAverage : (float?)null),
                 Cell.Text(record.EndedAt.ToString("HH:mm:ss", CultureInfo.InvariantCulture))
             });
             rowNumber++;
@@ -205,8 +210,8 @@ public static class TrainingSessionLogger
             sheet.AddRow(rowNumber, new[]
             {
                 Cell.Text("Raw average", 1),
-                Cell.Formula("IFERROR(AVERAGEIF('Training Runs'!$C:$C,\"*auditory*\",'Training Runs'!$I:$I),\"\")"),
-                Cell.Formula("IFERROR(AVERAGEIF('Training Runs'!$C:$C,\"*visual*\",'Training Runs'!$I:$I),\"\")"),
+                Cell.Formula("IFERROR(AVERAGEIF('Training Runs'!$C:$C,\"*auditory*\",'Training Runs'!$I:$I),\"\")", statistics.AuditoryCount > 0 ? statistics.AuditoryRawAverage : (float?)null),
+                Cell.Formula("IFERROR(AVERAGEIF('Training Runs'!$C:$C,\"*visual*\",'Training Runs'!$I:$I),\"\")", statistics.VisualCount > 0 ? statistics.VisualRawAverage : (float?)null),
                 Cell.Blank(),
                 Cell.Blank(),
                 Cell.Blank()
@@ -218,8 +223,8 @@ public static class TrainingSessionLogger
                 Cell.Text("Weighted average", 1),
                 Cell.Blank(),
                 Cell.Blank(),
-                Cell.Formula($"'Training Runs'!N{lastRunSheetRow}"),
-                Cell.Formula($"'Training Runs'!Q{lastRunSheetRow}"),
+                Cell.Formula($"'Training Runs'!N{lastRunSheetRow}", statistics.AuditoryWeightSum > 0f ? statistics.AuditoryWeightedAverage : (float?)null),
+                Cell.Formula($"'Training Runs'!Q{lastRunSheetRow}", statistics.VisualWeightSum > 0f ? statistics.VisualWeightedAverage : (float?)null),
                 Cell.Blank()
             });
         }
@@ -254,8 +259,39 @@ public static class TrainingSessionLogger
         });
 
         int rowNumber = 2;
+        RunningWeightedAverages running = new RunningWeightedAverages();
         foreach (TrainingRunRecord record in runRecords)
         {
+            float focusedPercentage = CalculateFocusedPercentage(record);
+            bool isAuditory = IsTrainingMode(record.TrainingType, "auditory");
+            bool isVisual = IsTrainingMode(record.TrainingType, "visual");
+
+            if (isAuditory)
+            {
+                running.AuditoryWeightedSum = focusedPercentage + RecencyDecay * running.AuditoryWeightedSum;
+                running.AuditoryWeightSum = 1f + RecencyDecay * running.AuditoryWeightSum;
+            }
+
+            if (isVisual)
+            {
+                running.VisualWeightedSum = focusedPercentage + RecencyDecay * running.VisualWeightedSum;
+                running.VisualWeightSum = 1f + RecencyDecay * running.VisualWeightSum;
+            }
+
+            int previousRow = rowNumber - 1;
+            string auditorySumFormula = rowNumber == 2
+                ? $"IF(ISNUMBER(SEARCH(\"auditory\",C{rowNumber})),I{rowNumber},0)"
+                : $"IF(ISNUMBER(SEARCH(\"auditory\",C{rowNumber})),I{rowNumber}+'Session Summary'!$G$2*L{previousRow},L{previousRow})";
+            string auditoryWeightFormula = rowNumber == 2
+                ? $"IF(ISNUMBER(SEARCH(\"auditory\",C{rowNumber})),1,0)"
+                : $"IF(ISNUMBER(SEARCH(\"auditory\",C{rowNumber})),1+'Session Summary'!$G$2*M{previousRow},M{previousRow})";
+            string visualSumFormula = rowNumber == 2
+                ? $"IF(ISNUMBER(SEARCH(\"visual\",C{rowNumber})),I{rowNumber},0)"
+                : $"IF(ISNUMBER(SEARCH(\"visual\",C{rowNumber})),I{rowNumber}+'Session Summary'!$G$2*O{previousRow},O{previousRow})";
+            string visualWeightFormula = rowNumber == 2
+                ? $"IF(ISNUMBER(SEARCH(\"visual\",C{rowNumber})),1,0)"
+                : $"IF(ISNUMBER(SEARCH(\"visual\",C{rowNumber})),1+'Session Summary'!$G$2*P{previousRow},P{previousRow})";
+
             sheet.AddRow(rowNumber, new[]
             {
                 Cell.Text(record.SessionId),
@@ -266,21 +302,125 @@ public static class TrainingSessionLogger
                 Cell.Text(record.EndedAt.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)),
                 Cell.Number(record.DurationSeconds, 2),
                 Cell.Number(record.FocusedSeconds, 2),
-                Cell.Formula($"IF(G{rowNumber}=0,0,H{rowNumber}/G{rowNumber}*100)"),
-                Cell.Formula($"IF(ISNUMBER(SEARCH(\"auditory\",C{rowNumber})),COUNTIF($C$2:C{rowNumber},\"*auditory*\"),\"\")"),
-                Cell.Formula($"IF(ISNUMBER(SEARCH(\"visual\",C{rowNumber})),COUNTIF($C$2:C{rowNumber},\"*visual*\"),\"\")"),
-                Cell.Formula($"IF(COUNT($J$2:J{rowNumber})=0,\"\",SUMPRODUCT(($J$2:J{rowNumber}<>\"\"),$I$2:I{rowNumber},POWER('Session Summary'!$G$2,IF($J$2:J{rowNumber}<>\"\",COUNT($J$2:J{rowNumber})-$J$2:J{rowNumber},0))))"),
-                Cell.Formula($"IF(COUNT($J$2:J{rowNumber})=0,\"\",SUMPRODUCT(($J$2:J{rowNumber}<>\"\"),POWER('Session Summary'!$G$2,IF($J$2:J{rowNumber}<>\"\",COUNT($J$2:J{rowNumber})-$J$2:J{rowNumber},0))))"),
-                Cell.Formula($"IF(M{rowNumber}=0,\"\",L{rowNumber}/M{rowNumber})"),
-                Cell.Formula($"IF(COUNT($K$2:K{rowNumber})=0,\"\",SUMPRODUCT(($K$2:K{rowNumber}<>\"\"),$I$2:I{rowNumber},POWER('Session Summary'!$G$2,IF($K$2:K{rowNumber}<>\"\",COUNT($K$2:K{rowNumber})-$K$2:K{rowNumber},0))))"),
-                Cell.Formula($"IF(COUNT($K$2:K{rowNumber})=0,\"\",SUMPRODUCT(($K$2:K{rowNumber}<>\"\"),POWER('Session Summary'!$G$2,IF($K$2:K{rowNumber}<>\"\",COUNT($K$2:K{rowNumber})-$K$2:K{rowNumber},0))))"),
-                Cell.Formula($"IF(P{rowNumber}=0,\"\",O{rowNumber}/P{rowNumber})"),
+                Cell.Formula($"IF(G{rowNumber}=0,0,H{rowNumber}/G{rowNumber}*100)", focusedPercentage),
+                Cell.Formula($"IF(ISNUMBER(SEARCH(\"auditory\",C{rowNumber})),COUNTIF($C$2:C{rowNumber},\"*auditory*\"),\"\")", isAuditory ? CountModeThroughRun(record.RunNumber, "auditory") : (float?)null),
+                Cell.Formula($"IF(ISNUMBER(SEARCH(\"visual\",C{rowNumber})),COUNTIF($C$2:C{rowNumber},\"*visual*\"),\"\")", isVisual ? CountModeThroughRun(record.RunNumber, "visual") : (float?)null),
+                Cell.Formula(auditorySumFormula, running.AuditoryWeightedSum),
+                Cell.Formula(auditoryWeightFormula, running.AuditoryWeightSum),
+                Cell.Formula($"IF(M{rowNumber}=0,\"\",L{rowNumber}/M{rowNumber})", running.AuditoryWeightSum > 0f ? running.AuditoryAverage : (float?)null),
+                Cell.Formula(visualSumFormula, running.VisualWeightedSum),
+                Cell.Formula(visualWeightFormula, running.VisualWeightSum),
+                Cell.Formula($"IF(P{rowNumber}=0,\"\",O{rowNumber}/P{rowNumber})", running.VisualWeightSum > 0f ? running.VisualAverage : (float?)null),
                 Cell.Number(record.HrvThreshold, 2)
             });
             rowNumber++;
         }
 
         return sheet.Build();
+    }
+
+    private static float CalculateFocusedPercentage(TrainingRunRecord record)
+    {
+        return record.DurationSeconds == 0f ? 0f : record.FocusedSeconds / record.DurationSeconds * 100f;
+    }
+
+    private static bool IsTrainingMode(string trainingType, string mode)
+    {
+        return !string.IsNullOrEmpty(trainingType) &&
+               trainingType.IndexOf(mode, StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static int CountModeThroughRun(int runNumber, string mode)
+    {
+        int count = 0;
+        int limit = Math.Min(runNumber, runRecords.Count);
+        for (int i = 0; i < limit; i++)
+        {
+            if (IsTrainingMode(runRecords[i].TrainingType, mode))
+            {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private static RunningWeightedAverages CalculateRunningWeightedAverages(int runNumber)
+    {
+        RunningWeightedAverages result = new RunningWeightedAverages();
+        int limit = Math.Min(runNumber, runRecords.Count);
+        for (int i = 0; i < limit; i++)
+        {
+            TrainingRunRecord record = runRecords[i];
+            float percentage = CalculateFocusedPercentage(record);
+            if (IsTrainingMode(record.TrainingType, "auditory"))
+            {
+                result.AuditoryWeightedSum = percentage + RecencyDecay * result.AuditoryWeightedSum;
+                result.AuditoryWeightSum = 1f + RecencyDecay * result.AuditoryWeightSum;
+            }
+            if (IsTrainingMode(record.TrainingType, "visual"))
+            {
+                result.VisualWeightedSum = percentage + RecencyDecay * result.VisualWeightedSum;
+                result.VisualWeightSum = 1f + RecencyDecay * result.VisualWeightSum;
+            }
+        }
+        return result;
+    }
+
+    private static TrainingStatistics CalculateTrainingStatistics()
+    {
+        TrainingStatistics result = new TrainingStatistics();
+        RunningWeightedAverages weighted = CalculateRunningWeightedAverages(runRecords.Count);
+        result.AuditoryWeightedSum = weighted.AuditoryWeightedSum;
+        result.AuditoryWeightSum = weighted.AuditoryWeightSum;
+        result.VisualWeightedSum = weighted.VisualWeightedSum;
+        result.VisualWeightSum = weighted.VisualWeightSum;
+
+        foreach (TrainingRunRecord record in runRecords)
+        {
+            if (IsTrainingMode(record.TrainingType, "auditory"))
+            {
+                result.AuditoryCount++;
+                result.AuditoryDurationTotal += record.DurationSeconds;
+                result.AuditoryPercentageTotal += CalculateFocusedPercentage(record);
+            }
+            if (IsTrainingMode(record.TrainingType, "visual"))
+            {
+                result.VisualCount++;
+                result.VisualDurationTotal += record.DurationSeconds;
+                result.VisualPercentageTotal += CalculateFocusedPercentage(record);
+            }
+        }
+        return result;
+    }
+
+    private struct RunningWeightedAverages
+    {
+        public float AuditoryWeightedSum;
+        public float AuditoryWeightSum;
+        public float VisualWeightedSum;
+        public float VisualWeightSum;
+        public float AuditoryAverage => AuditoryWeightSum > 0f ? AuditoryWeightedSum / AuditoryWeightSum : 0f;
+        public float VisualAverage => VisualWeightSum > 0f ? VisualWeightedSum / VisualWeightSum : 0f;
+    }
+
+    private struct TrainingStatistics
+    {
+        public int AuditoryCount;
+        public int VisualCount;
+        public float AuditoryDurationTotal;
+        public float VisualDurationTotal;
+        public float AuditoryPercentageTotal;
+        public float VisualPercentageTotal;
+        public float AuditoryWeightedSum;
+        public float AuditoryWeightSum;
+        public float VisualWeightedSum;
+        public float VisualWeightSum;
+        public float AuditoryDurationAverage => AuditoryDurationTotal / AuditoryCount;
+        public float VisualDurationAverage => VisualDurationTotal / VisualCount;
+        public float AuditoryRawAverage => AuditoryPercentageTotal / AuditoryCount;
+        public float VisualRawAverage => VisualPercentageTotal / VisualCount;
+        public float AuditoryWeightedAverage => AuditoryWeightedSum / AuditoryWeightSum;
+        public float VisualWeightedAverage => VisualWeightedSum / VisualWeightSum;
     }
 
     private static void AddEntry(ZipArchive archive, string path, string content)
@@ -429,39 +569,52 @@ public static class TrainingSessionLogger
         private readonly string textValue;
         private readonly string formulaValue;
         private readonly float numberValue;
+        private readonly bool hasCachedValue;
 
         public CellKind Kind { get; }
         public int StyleIndex { get; }
 
-        private Cell(CellKind kind, string textValue, string formulaValue, float numberValue, int styleIndex)
+        private Cell(CellKind kind, string textValue, string formulaValue, float numberValue, bool hasCachedValue, int styleIndex)
         {
             Kind = kind;
             this.textValue = textValue;
             this.formulaValue = formulaValue;
             this.numberValue = numberValue;
+            this.hasCachedValue = hasCachedValue;
             StyleIndex = styleIndex;
         }
 
         public static Cell Blank()
         {
-            return new Cell(CellKind.Blank, string.Empty, string.Empty, 0f, 0);
+            return new Cell(CellKind.Blank, string.Empty, string.Empty, 0f, false, 0);
         }
 
         public static Cell Text(string value, int styleIndex = 0)
         {
-            return new Cell(CellKind.Text, value ?? string.Empty, string.Empty, 0f, styleIndex);
+            return new Cell(CellKind.Text, value ?? string.Empty, string.Empty, 0f, false, styleIndex);
         }
 
         public static Cell Number(float value, int decimals, int styleIndex = 0)
         {
             string format = decimals <= 0 ? "0" : "0." + new string('0', decimals);
             float parsedValue = float.Parse(value.ToString(format, CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
-            return new Cell(CellKind.Number, string.Empty, string.Empty, parsedValue, styleIndex);
+            return new Cell(CellKind.Number, string.Empty, string.Empty, parsedValue, true, styleIndex);
         }
 
         public static Cell Formula(string formula, int styleIndex = 0)
         {
-            return new Cell(CellKind.Formula, string.Empty, formula ?? string.Empty, 0f, styleIndex);
+            return new Cell(CellKind.Formula, string.Empty, formula ?? string.Empty, 0f, false, styleIndex);
+        }
+
+        public static Cell Formula(string formula, float? cachedValue, int styleIndex = 0)
+        {
+            return new Cell(
+                CellKind.Formula,
+                string.Empty,
+                formula ?? string.Empty,
+                cachedValue.GetValueOrDefault(),
+                cachedValue.HasValue,
+                styleIndex);
         }
 
         public string ToXml(string reference)
@@ -479,7 +632,10 @@ public static class TrainingSessionLogger
 
             if (Kind == CellKind.Formula)
             {
-                return $"<c r=\"{reference}\"{style}><f>{EscapeText(formulaValue)}</f></c>";
+                string cachedValue = hasCachedValue
+                    ? $"<v>{numberValue.ToString(CultureInfo.InvariantCulture)}</v>"
+                    : string.Empty;
+                return $"<c r=\"{reference}\"{style}><f>{EscapeText(formulaValue)}</f>{cachedValue}</c>";
             }
 
             return $"<c r=\"{reference}\" t=\"inlineStr\"{style}><is><t>{EscapeText(textValue)}</t></is></c>";
