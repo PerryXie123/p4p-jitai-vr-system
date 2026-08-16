@@ -9,6 +9,7 @@ public class OpenTrainScript : MonoBehaviour
     private const string StandardTrainingSceneName = "Train";
     private const string RealisticTrainingSceneName = "TrainRealistic";
     private const string LowPolyTrainingSceneName = "TrainLowPoly";
+    private const string CalibrationSceneName = "Calibration";
 
     public GameObject MenuUI;
     // Start is called once before the first execution of Update after the MonoBehaviour is created
@@ -57,6 +58,12 @@ public class OpenTrainScript : MonoBehaviour
     {
         Debug.Log("test button pressed; loading realistic training scene");
         LoadTrainRealistic();
+    }
+
+    public void LoadCalibration()
+    {
+        Debug.Log("calibration pressed");
+        SceneManager.LoadScene(CalibrationSceneName);
     }
 
     public void LoadMenu()
