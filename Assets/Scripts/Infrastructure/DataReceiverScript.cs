@@ -6,8 +6,10 @@ using UnityEngine;
 public class DataReceiverScript : MonoBehaviour
 {
     [Header("Focus Thresholds")]
-    [SerializeField, Range(0f, 1f)] private float hrvThreshold = 0.5f;
-    [SerializeField] private float maxRestingHeartRate = 100f;
+    [SerializeField, Min(1f)] private float baselineHeartRate = 70f;
+    [SerializeField, Min(0.1f)] private float baselineRmssd = 40f;
+    [SerializeField, Min(0f)] private float allowedHeartRateIncrease = 10f;
+    [SerializeField, Range(0f, 1f)] private float hrvThreshold = 0.9f;
 
     [Header("Consumers")]
     [SerializeField] private AuditoryTraining auditoryTraining;
@@ -44,19 +46,28 @@ public class DataReceiverScript : MonoBehaviour
     }
 
     /**
-     * Logic to determine if the vitals indicate a focused/calm state.
-     *
-     * TODO: Implement a more sophisticated check based on HRV metrics
-     * (RMSSD/PNN50) rather than heart rate alone.
+     * Vitals pass when heart rate is no more than the configured amount above
+     * the participant's calm baseline and RMSSD remains at or above the
+     * configured proportion of its calm baseline.
      */
     public bool AreVitalsPassing()
     {
-        if (!HasReceivedData)
+        VitalSnapshot snapshot = CurrentVitals;
+
+        if (!HasReceivedData || snapshot == null
+            || float.IsNaN(snapshot.HeartRate) || float.IsInfinity(snapshot.HeartRate)
+            || float.IsNaN(snapshot.RMSSD) || float.IsInfinity(snapshot.RMSSD)
+            || snapshot.HeartRate <= 0f || snapshot.RMSSD <= 0f)
         {
             return false;
         }
 
-        return CurrentVitals.HeartRate <= maxRestingHeartRate;
+        bool isHeartRatePassing =
+            snapshot.HeartRate <= baselineHeartRate + allowedHeartRateIncrease;
+        bool isRmssdPassing =
+            snapshot.RMSSD >= baselineRmssd * hrvThreshold;
+
+        return isHeartRatePassing && isRmssdPassing;
     }
 
     public bool IsFocused => GetPassingCheckCount() >= 2;
