@@ -1,4 +1,6 @@
+using IdyllicFantasyNature;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 public class FocusFeedbackController : MonoBehaviour
@@ -40,9 +42,16 @@ public class FocusFeedbackController : MonoBehaviour
     [SerializeField, Range(0f, 20f)] private float normalLightIntensity = 1f;
     [SerializeField, Range(0f, 50f)] private float unfocusedLightIntensity = 8f;
 
+    [Header("Foliage Wind")]
+    [SerializeField] private WindControl foliageWindControl;
+    [SerializeField] private bool driveFoliageWindOnlyInOriginalTrainingScene = true;
+    [SerializeField, Range(0f, 1f)] private float defaultFoliageWindSpeed = 0.14f;
+    [SerializeField, Range(0f, 1f)] private float defaultFoliageWindStrength = 0.25f;
+
     private float unfocusedTimer;
     private float feedbackAmount;
     private float currentDimmingOpacity;
+    private float currentFoliageWindAmount = 100f;
     private MaterialPropertyBlock propertyBlock;
     private Transform runtimeOverlayTransform;
     private Renderer runtimeOverlayRenderer;
@@ -73,6 +82,16 @@ public class FocusFeedbackController : MonoBehaviour
         if (targetCamera == null)
         {
             targetCamera = Camera.main;
+        }
+
+        if (foliageWindControl == null && ShouldDriveFoliageWindInCurrentScene())
+        {
+            foliageWindControl = FindFirstObjectByType<WindControl>();
+        }
+
+        if (ShouldDriveFoliageWindInCurrentScene())
+        {
+            ApplyFoliageWind();
         }
 
         propertyBlock = new MaterialPropertyBlock();
@@ -113,6 +132,7 @@ public class FocusFeedbackController : MonoBehaviour
     {
         bool isTrainingActive = !requireTrainingActive || IsAnyTrainingModeActive();
         bool isEyeGazePassing = dataReceiver != null && dataReceiver.IsLookingAtOrb;
+        bool isRmssdPassing = dataReceiver != null && dataReceiver.IsRmssdPassing();
 
         if (!isTrainingActive || isEyeGazePassing)
         {
@@ -124,10 +144,18 @@ public class FocusFeedbackController : MonoBehaviour
         }
 
         UpdateDimmingOpacity(isTrainingActive, isEyeGazePassing);
+        if (ShouldDriveFoliageWindInCurrentScene())
+        {
+            UpdateFoliageWind(isTrainingActive, isRmssdPassing);
+        }
 
         ApplyDarkening();
         ApplyAmbientAudio();
         ApplyOrbBrightness();
+        if (ShouldDriveFoliageWindInCurrentScene())
+        {
+            ApplyFoliageWind();
+        }
     }
 
     private void LateUpdate()
@@ -190,6 +218,25 @@ public class FocusFeedbackController : MonoBehaviour
         }
 
         feedbackAmount = maxDimmingOpacity <= 0f ? 0f : currentDimmingOpacity / maxDimmingOpacity;
+    }
+
+    private void UpdateFoliageWind(bool isTrainingActive, bool isRmssdPassing)
+    {
+        float targetWindAmount = 100f;
+
+        if (isTrainingActive && !isRmssdPassing)
+        {
+            targetWindAmount = 0f;
+        }
+
+        float changePerSecond = targetWindAmount < currentFoliageWindAmount
+            ? dimmingIncreasePerSecond
+            : dimmingDecreasePerSecond;
+
+        currentFoliageWindAmount = Mathf.MoveTowards(
+            currentFoliageWindAmount,
+            targetWindAmount,
+            changePerSecond * Time.deltaTime);
     }
 
     private void ApplyAmbientAudio()
@@ -349,6 +396,20 @@ public class FocusFeedbackController : MonoBehaviour
         {
             orbLight.intensity = Mathf.Lerp(normalLightIntensity, unfocusedLightIntensity, feedbackAmount);
         }
+    }
+
+    private void ApplyFoliageWind()
+    {
+        if (foliageWindControl == null) return;
+
+        foliageWindControl.SetWindSpeed(defaultFoliageWindSpeed);
+        foliageWindControl.SetWindStrength(defaultFoliageWindStrength * currentFoliageWindAmount / 100f);
+    }
+
+    private bool ShouldDriveFoliageWindInCurrentScene()
+    {
+        return !driveFoliageWindOnlyInOriginalTrainingScene
+            || SceneManager.GetActiveScene().name == "Train";
     }
 
     private void ConfigureOrbRenderOrder()

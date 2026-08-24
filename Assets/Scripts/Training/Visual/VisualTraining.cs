@@ -53,9 +53,9 @@ public class VisualTraining : TrainingMode
             return;
         }
 
-        bool areVitalsPassing = dataReceiver != null && dataReceiver.AreVitalsPassing();
+        bool isHeartRatePassing = dataReceiver != null && dataReceiver.IsHeartRatePassing();
 
-        if (!areVitalsPassing)
+        if (!isHeartRatePassing)
         {
             focusTimer = 0f;
             FadeAnimalsToward(false);
