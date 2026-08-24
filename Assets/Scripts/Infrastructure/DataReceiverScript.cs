@@ -168,7 +168,7 @@ public class DataReceiverScript : MonoBehaviour
     {
         if (auditoryTraining != null)
         {
-            auditoryTraining.SetFocus(IsFocused);
+            auditoryTraining.SetFocus(AreVitalsPassing());
         }
     }
 }

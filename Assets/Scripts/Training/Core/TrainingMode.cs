@@ -59,7 +59,7 @@ public abstract class TrainingMode : MonoBehaviour
             float frameSeconds = Mathf.Min(Time.deltaTime, trainingDurationSeconds - elapsedTrainingSeconds);
             elapsedTrainingSeconds += frameSeconds;
 
-            if (focusDataReceiver != null && focusDataReceiver.IsFocused)
+            if (focusDataReceiver != null && focusDataReceiver.IsLookingAtOrb)
             {
                 focusedSeconds += frameSeconds;
             }
