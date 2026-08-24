@@ -112,9 +112,9 @@ public class FocusFeedbackController : MonoBehaviour
     private void Update()
     {
         bool isTrainingActive = !requireTrainingActive || IsAnyTrainingModeActive();
-        bool isFocused = dataReceiver != null && dataReceiver.IsFocused;
+        bool isEyeGazePassing = dataReceiver != null && dataReceiver.IsLookingAtOrb;
 
-        if (!isTrainingActive || isFocused)
+        if (!isTrainingActive || isEyeGazePassing)
         {
             unfocusedTimer = 0f;
         }
@@ -123,7 +123,7 @@ public class FocusFeedbackController : MonoBehaviour
             unfocusedTimer += Time.deltaTime;
         }
 
-        UpdateDimmingOpacity(isTrainingActive, isFocused);
+        UpdateDimmingOpacity(isTrainingActive, isEyeGazePassing);
 
         ApplyDarkening();
         ApplyAmbientAudio();
@@ -160,7 +160,7 @@ public class FocusFeedbackController : MonoBehaviour
         }
     }
 
-    private void UpdateDimmingOpacity(bool isTrainingActive, bool isFocused)
+    private void UpdateDimmingOpacity(bool isTrainingActive, bool isEyeGazePassing)
     {
         if (previewDarkening && isTrainingActive)
         {
@@ -173,7 +173,7 @@ public class FocusFeedbackController : MonoBehaviour
                 0f,
                 dimmingDecreasePerSecond * Time.deltaTime);
         }
-        else if (isFocused)
+        else if (isEyeGazePassing)
         {
             unfocusedTimer = 0f;
             currentDimmingOpacity = Mathf.MoveTowards(
