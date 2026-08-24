@@ -65,7 +65,7 @@ public class FocusUI : MonoBehaviour
 
         SetStatusTextVisible(true);
         statusText.text = dataReceiver.GetStatusText();
-        statusText.color = dataReceiver.IsFocused ? Color.green : Color.red;
+        statusText.color = Color.white;
     }
 
     private void SetStatusTextVisible(bool isVisible)
