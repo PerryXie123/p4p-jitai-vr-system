@@ -5686,7 +5686,7 @@ MonoBehaviour:
   finishPanel: {fileID: 1766917575}
   focusText: {fileID: 1272223928}
   focusDataReceiver: {fileID: 0}
-  trainingDurationSeconds: 3
+  trainingDurationSeconds: 21
   dataReceiver: {fileID: 0}
   trainingAnimals:
   - {fileID: 146223585}
@@ -44752,6 +44752,10 @@ MonoBehaviour:
   unfocusedEmissionIntensity: 5
   normalLightIntensity: 1
   unfocusedLightIntensity: 8
+  foliageWindControl: {fileID: 0}
+  driveFoliageWindOnlyInOriginalTrainingScene: 1
+  defaultFoliageWindSpeed: 0.14
+  defaultFoliageWindStrength: 0.25
 --- !u!1 &696959672
 GameObject:
   m_ObjectHideFlags: 0
