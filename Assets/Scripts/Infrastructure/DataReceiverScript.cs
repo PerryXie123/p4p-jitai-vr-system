@@ -59,22 +59,35 @@ public class DataReceiverScript : MonoBehaviour
      */
     public bool AreVitalsPassing()
     {
+        return IsHeartRatePassing() && IsRmssdPassing();
+    }
+
+    public bool IsHeartRatePassing()
+    {
         VitalSnapshot snapshot = CurrentVitals;
-        if (!HasReceivedData
-            || !RuntimeBaselineState.IsValid
-            || snapshot == null
-            || !IsFinitePositive(snapshot.HeartRate)
-            || !IsFinitePositive(snapshot.RMSSD))
+
+        if (!RuntimeBaselineState.IsValid || !HasValidHeartRate(snapshot))
         {
             return false;
         }
 
         float heartRateLoadZ = (snapshot.HeartRate - RuntimeBaselineState.HeartRate)
             / RuntimeBaselineState.HeartRateStandardDeviation;
+        return heartRateLoadZ < loadZThreshold;
+    }
+
+    public bool IsRmssdPassing()
+    {
+        VitalSnapshot snapshot = CurrentVitals;
+
+        if (!RuntimeBaselineState.IsValid || !HasValidRmssd(snapshot))
+        {
+            return false;
+        }
+
         float hrvLoadZ = (RuntimeBaselineState.LnRmssd - Mathf.Log(snapshot.RMSSD))
             / RuntimeBaselineState.LnRmssdStandardDeviation;
-
-        return heartRateLoadZ < loadZThreshold && hrvLoadZ < loadZThreshold;
+        return hrvLoadZ < loadZThreshold;
     }
 
     public bool IsFocused => GetPassingCheckCount() >= 2;
@@ -121,13 +134,22 @@ public class DataReceiverScript : MonoBehaviour
 
     public string GetStatusText()
     {
+        bool isHeartRatePassing = IsHeartRatePassing();
+        bool isRmssdPassing = IsRmssdPassing();
+        bool isLookingAtOrb = IsLookingAtOrb;
+
         return string.Format(
             CultureInfo.InvariantCulture,
-            "{0}\n<size=70%>HR: {1} {2}\nOrb: {3}</size>",
-            IsFocused ? "Focused" : "Not Focused",
+            "<size=70%><color={0}>HR: {1} {2}</color>\n"
+            + "<color={3}>HRV: {4}</color>\n"
+            + "<color={5}>Orb: {6}</color></size>",
+            isHeartRatePassing ? "green" : "red",
             CurrentVitals == null ? "—" : CurrentVitals.HeartRate.ToString("0"),
-            AreVitalsPassing() ? "pass" : "fail",
-            IsLookingAtOrb ? "pass" : "fail");
+            isHeartRatePassing ? "pass" : "fail",
+            isRmssdPassing ? "green" : "red",
+            isRmssdPassing ? "pass" : "fail",
+            isLookingAtOrb ? "green" : "red",
+            isLookingAtOrb ? "pass" : "fail");
     }
 
     public bool TrySendMessage(SignalProcessingMessage message)
@@ -340,7 +362,21 @@ public class DataReceiverScript : MonoBehaviour
     {
         if (auditoryTraining != null)
         {
-            auditoryTraining.SetFocus(IsFocused);
+            auditoryTraining.SetFocus(IsHeartRatePassing());
         }
+    }
+
+    private bool HasValidHeartRate(VitalSnapshot snapshot)
+    {
+        return HasReceivedData && snapshot != null
+            && !float.IsNaN(snapshot.HeartRate) && !float.IsInfinity(snapshot.HeartRate)
+            && snapshot.HeartRate > 0f;
+    }
+
+    private bool HasValidRmssd(VitalSnapshot snapshot)
+    {
+        return HasReceivedData && snapshot != null
+            && !float.IsNaN(snapshot.RMSSD) && !float.IsInfinity(snapshot.RMSSD)
+            && snapshot.RMSSD > 0f;
     }
 }
