@@ -16,6 +16,15 @@ def build_vital_snapshot(args):
     }
 
 
+def build_vitals_message(args):
+    return {
+        "Type": "VitalsSnapshot",
+        "RequestId": "",
+        "ProtocolVersion": 1,
+        "Vitals": build_vital_snapshot(args),
+    }
+
+
 def clamp01(value):
     return max(0.0, min(1.0, value))
 
@@ -25,7 +34,7 @@ def main():
         description="Send simulated VitalSnapshot messages to Unity's TCP listener."
     )
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=5005)
+    parser.add_argument("--port", type=int, default=8081)
     parser.add_argument("--rate", type=float, default=10.0, help="Frames per second.")
     parser.add_argument("--heart-rate", type=float, help="Fixed heart rate in BPM.")
     parser.add_argument("--mean-nn", type=float, help="Fixed mean NN interval in milliseconds.")
@@ -52,10 +61,10 @@ def main():
                 print("Connected to Unity TCP listener.")
 
                 while True:
-                    snapshot = build_vital_snapshot(args)
-                    payload = (json.dumps(snapshot) + "\n").encode("utf-8")
+                    message = build_vitals_message(args)
+                    payload = (json.dumps(message) + "\n").encode("utf-8")
                     sock.sendall(payload)
-                    print(snapshot)
+                    print(message)
                     time.sleep(delay)
         except (ConnectionError, OSError) as error:
             print(f"Connection unavailable ({error}); retrying...")

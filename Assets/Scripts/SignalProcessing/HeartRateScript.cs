@@ -4,42 +4,47 @@ using UnityEngine;
 
 public class HeartRateScript : MonoBehaviour
 {
-    private TcpGameServer<VitalSnapshot> sensorClient;
+    private TcpGameServer<SignalProcessingMessage> sensorClient;
     public TextMeshProUGUI heartRateText;
     public TextMeshProUGUI statusText;
 
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    private void Start()
     {
         InitSensorSocket();
     }
 
-    // Update is called once per frame
-    void Update()
+    private void Update()
     {
         UpdateLabels();
     }
 
-    void UpdateLabels()
+    private void UpdateLabels()
     {
-        if (sensorClient.TryGetMessage(out VitalSnapshot stats))
+        while (sensorClient.TryGetMessage(out SignalProcessingMessage message))
         {
-            heartRateText.text = $"{stats.PrintVitals()}";
+            if (message != null
+                && message.ProtocolVersion == SignalProcessingMessage.CurrentProtocolVersion
+                && message.Type == MessageTypes.VitalsSnapshot
+                && message.Vitals != null)
+            {
+                heartRateText.text = message.Vitals.PrintVitals();
+            }
         }
+
         if (sensorClient.TryGetError(out string error))
         {
             statusText.text = $"Status: {error}";
         }
     }
 
-    void OnDestroy()
+    private void OnDestroy()
     {
         sensorClient?.CloseSocket();
     }
 
     private void InitSensorSocket()
     {
-        sensorClient = new TcpGameServer<VitalSnapshot>();
+        sensorClient = new TcpGameServer<SignalProcessingMessage>();
         sensorClient.InitConnection();
     }
 }

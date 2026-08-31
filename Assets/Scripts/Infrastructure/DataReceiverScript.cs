@@ -14,12 +14,15 @@ public class DataReceiverScript : MonoBehaviour
     [Header("Consumers")]
     [SerializeField] private AuditoryTraining auditoryTraining;
 
-    private TcpGameServer<VitalSnapshot> tcpServer;
+    private TcpGameServer<SignalProcessingMessage> tcpServer;
     private readonly object dataLock = new object();
 
     private VitalSnapshot vitalSnapshot;
     private bool hasReceivedData;
     private bool isLookingAtOrb;
+
+    public event Action<string, CalibrationStartedPayload> CalibrationStartedReceived;
+    public event Action<string, CalibrationResultPayload> CalibrationResultReceived;
 
     public VitalSnapshot CurrentVitals
     {
@@ -44,6 +47,13 @@ public class DataReceiverScript : MonoBehaviour
             lock (dataLock) return hasReceivedData;
         }
     }
+
+    public bool IsSignalProcessingConnected =>
+        tcpServer != null && tcpServer.IsClientConnected;
+
+    public bool HasCalibratedBaseline => RuntimeBaselineState.IsValid;
+    public float BaselineHeartRate => baselineHeartRate;
+    public float BaselineRmssd => baselineRmssd;
 
     /**
      * Vitals pass when heart rate is no more than the configured amount above
@@ -79,6 +89,8 @@ public class DataReceiverScript : MonoBehaviour
         {
             auditoryTraining = FindFirstObjectByType<AuditoryTraining>();
         }
+
+        ApplyStoredBaseline();
     }
 
     private void Start()
@@ -122,13 +134,89 @@ public class DataReceiverScript : MonoBehaviour
             IsLookingAtOrb ? "pass" : "fail");
     }
 
+    public bool TrySendMessage(SignalProcessingMessage message)
+    {
+        if (message == null || string.IsNullOrWhiteSpace(message.Type))
+        {
+            return false;
+        }
+
+        message.ProtocolVersion = SignalProcessingMessage.CurrentProtocolVersion;
+        return tcpServer != null && tcpServer.TrySend(message);
+    }
+
+    public bool TryStartCalibration(string requestId, float requestedDurationSeconds)
+    {
+        if (string.IsNullOrWhiteSpace(requestId) || requestedDurationSeconds <= 0f)
+        {
+            return false;
+        }
+
+        return TrySendMessage(new SignalProcessingMessage
+        {
+            Type = MessageTypes.CalibrationStart,
+            RequestId = requestId,
+            CalibrationStart = new CalibrationStartPayload
+            {
+                RequestedDurationSeconds = requestedDurationSeconds
+            }
+        });
+    }
+
+    public bool TryFinishCalibration(string requestId, float elapsedDurationSeconds)
+    {
+        if (string.IsNullOrWhiteSpace(requestId) || elapsedDurationSeconds < 0f)
+        {
+            return false;
+        }
+
+        return TrySendMessage(new SignalProcessingMessage
+        {
+            Type = MessageTypes.CalibrationFinish,
+            RequestId = requestId,
+            CalibrationFinish = new CalibrationFinishPayload
+            {
+                ElapsedDurationSeconds = elapsedDurationSeconds
+            }
+        });
+    }
+
+    public bool TryCancelCalibration(string requestId, string reason)
+    {
+        if (string.IsNullOrWhiteSpace(requestId))
+        {
+            return false;
+        }
+
+        return TrySendMessage(new SignalProcessingMessage
+        {
+            Type = MessageTypes.CalibrationCancel,
+            RequestId = requestId,
+            CalibrationCancel = new CalibrationCancelPayload
+            {
+                Reason = reason ?? string.Empty
+            }
+        });
+    }
+
+    public bool TryApplyCalibrationResult(CalibrationResultPayload payload)
+    {
+        if (!RuntimeBaselineState.TryApply(payload))
+        {
+            return false;
+        }
+
+        ApplyStoredBaseline();
+        return true;
+    }
+
     private void StartReceiver()
     {
         try
         {
-            if (tcpServer != null) { return; }
+            if (tcpServer != null) return;
 
-            tcpServer = new TcpGameServer<VitalSnapshot>();
+            tcpServer = new TcpGameServer<SignalProcessingMessage>();
             tcpServer.InitConnection();
         }
         catch (Exception ex)
@@ -140,24 +228,107 @@ public class DataReceiverScript : MonoBehaviour
     private void StopReceiver()
     {
         tcpServer?.CloseSocket();
+        tcpServer = null;
     }
-
 
     private void Update()
     {
         if (tcpServer != null)
         {
-            lock (dataLock)
+            while (tcpServer.TryGetMessage(out SignalProcessingMessage message))
             {
-                while (tcpServer.TryGetMessage(out VitalSnapshot snapshot))
-                {
-                    vitalSnapshot = snapshot;
-                    hasReceivedData = true;
-                }
+                RouteMessage(message);
             }
         }
 
         UpdateConsumers();
+    }
+
+    private void RouteMessage(SignalProcessingMessage message)
+    {
+        if (message == null || string.IsNullOrWhiteSpace(message.Type))
+        {
+            Debug.LogWarning("Received a signal-processing message without a Type.", this);
+            return;
+        }
+
+        if (message.ProtocolVersion != SignalProcessingMessage.CurrentProtocolVersion)
+        {
+            Debug.LogWarning(
+                $"Ignoring signal-processing protocol version {message.ProtocolVersion}.",
+                this);
+            return;
+        }
+
+        switch (message.Type)
+        {
+            case MessageTypes.VitalsSnapshot:
+                HandleVitals(message.Vitals);
+                break;
+
+            case MessageTypes.CalibrationStarted:
+                HandleCalibrationStarted(message.RequestId, message.CalibrationStarted);
+                break;
+
+            case MessageTypes.CalibrationResult:
+                HandleCalibrationResult(message.RequestId, message.CalibrationResult);
+                break;
+
+            default:
+                Debug.LogWarning($"Unknown signal-processing message type: {message.Type}", this);
+                break;
+        }
+    }
+
+    private void HandleVitals(VitalSnapshot snapshot)
+    {
+        if (snapshot == null)
+        {
+            Debug.LogWarning("Received a VitalsSnapshot message without Vitals.", this);
+            return;
+        }
+
+        lock (dataLock)
+        {
+            vitalSnapshot = snapshot;
+            hasReceivedData = true;
+        }
+    }
+
+    private void HandleCalibrationStarted(
+        string requestId,
+        CalibrationStartedPayload payload)
+    {
+        if (payload == null)
+        {
+            Debug.LogWarning("Received CalibrationStarted without a payload.", this);
+            return;
+        }
+
+        // Route on Unity's main thread, outside dataLock.
+        CalibrationStartedReceived?.Invoke(requestId, payload);
+    }
+
+    private void HandleCalibrationResult(
+        string requestId,
+        CalibrationResultPayload payload)
+    {
+        if (payload == null)
+        {
+            Debug.LogWarning("Received CalibrationResult without a payload.", this);
+            return;
+        }
+
+        // Route on Unity's main thread, outside dataLock.
+        CalibrationResultReceived?.Invoke(requestId, payload);
+    }
+
+    private void ApplyStoredBaseline()
+    {
+        if (!RuntimeBaselineState.IsValid) return;
+
+        baselineHeartRate = RuntimeBaselineState.HeartRate;
+        baselineRmssd = RuntimeBaselineState.Rmssd;
     }
 
     private void UpdateConsumers()

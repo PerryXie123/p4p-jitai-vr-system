@@ -1,7 +1,5 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -18,36 +16,49 @@ namespace Assets.Scripts.SignalProcessing
         private TcpListener listener;
         private TcpClient tcpClient;
         private Thread recievingThread;
+        private Thread sendingThread;
         private NetworkStream stream;
 
         private volatile bool running;
+        private volatile bool clientConnected;
 
         private readonly ConcurrentQueue<T> messageQueue;
         private readonly ConcurrentQueue<string> statusQueue;
+        private readonly ConcurrentQueue<string> outgoingMessageQueue;
+        private readonly AutoResetEvent outgoingMessageAvailable;
+        private readonly object connectionLock = new object();
+
+        public bool IsClientConnected => clientConnected;
 
         public TcpGameServer()
         {
             statusQueue = new ConcurrentQueue<string>();
             messageQueue = new ConcurrentQueue<T>();
+            outgoingMessageQueue = new ConcurrentQueue<string>();
+            outgoingMessageAvailable = new AutoResetEvent(false);
         }
-
 
         public void InitConnection()
         {
             try
             {
+                if (running) return;
+
                 running = true;
                 recievingThread = new Thread(ListenToSocket) { IsBackground = true };
+                sendingThread = new Thread(WriteToSocket) { IsBackground = true };
                 recievingThread.Start();
+                sendingThread.Start();
                 statusQueue.Enqueue("Listening...");
             }
             catch (Exception e)
             {
+                running = false;
+                outgoingMessageAvailable.Set();
                 Debug.LogError($"Failed to connect to server: {e.Message}");
                 statusQueue.Enqueue($"Failed to connect to server: {e.Message}");
             }
         }
-
 
         public bool TryGetMessage(out T message)
         {
@@ -57,6 +68,42 @@ namespace Assets.Scripts.SignalProcessing
         public bool TryGetError(out string error)
         {
             return statusQueue.TryDequeue(out error);
+        }
+
+        public bool TrySend(T message)
+        {
+            if (!running || !clientConnected || ReferenceEquals(message, null))
+            {
+                return false;
+            }
+
+            string json;
+            try
+            {
+                json = JsonUtility.ToJson(message) + "\n";
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Failed to serialize outgoing JSON: {e.Message}");
+                statusQueue.Enqueue($"Failed to serialize outgoing JSON: {e.Message}");
+                return false;
+            }
+
+            // Enqueue while holding the same lock used to clear a disconnected
+            // client, so a command cannot slip into the queue after cleanup and
+            // then be delivered to a future connection.
+            lock (connectionLock)
+            {
+                if (!running || !clientConnected)
+                {
+                    return false;
+                }
+
+                outgoingMessageQueue.Enqueue(json);
+            }
+
+            outgoingMessageAvailable.Set();
+            return true;
         }
 
         private void ListenToSocket()
@@ -77,23 +124,37 @@ namespace Assets.Scripts.SignalProcessing
             catch (Exception e)
             {
                 if (!running) return;
+
                 Debug.LogError($"Error in TCP connection: {e.Message}");
                 statusQueue.Enqueue($"Error in TCP connection: {e.Message}");
+                running = false;
+                outgoingMessageAvailable.Set();
             }
         }
 
-        // Accepts a single client and reads from it until it disconnects, then
-        // returns so ListenToSocket can accept the next one.
+        // Accepts one client and reads until it disconnects, then returns so the
+        // listener can accept the next connection.
         private void ServeClient()
         {
+            TcpClient connectedClient = null;
+            NetworkStream connectedStream = null;
+
             try
             {
-                tcpClient = listener.AcceptTcpClient();
-                stream = tcpClient.GetStream();
+                connectedClient = listener.AcceptTcpClient();
+                connectedClient.NoDelay = true;
+                connectedStream = connectedClient.GetStream();
+
+                lock (connectionLock)
+                {
+                    tcpClient = connectedClient;
+                    stream = connectedStream;
+                    clientConnected = true;
+                }
+
                 Debug.Log("Client connected");
                 statusQueue.Enqueue("Client connected");
-
-                ReadFromClient(stream);
+                ReadFromClient(connectedStream);
             }
             catch (Exception e)
             {
@@ -103,19 +164,55 @@ namespace Assets.Scripts.SignalProcessing
             }
             finally
             {
-                // Release this connection's sockets before re-accepting
-                // so they are not leaked on every reconnect.
-                try { stream?.Close(); } catch { }
-                try { tcpClient?.Close(); } catch { }
-                statusQueue.Enqueue("Disconnected...");
+                ClearConnection(connectedClient, connectedStream);
 
+                if (connectedClient != null)
+                {
+                    statusQueue.Enqueue("Disconnected...");
+                }
+            }
+        }
+
+        private void WriteToSocket()
+        {
+            while (running)
+            {
+                outgoingMessageAvailable.WaitOne(250);
+
+                while (running && outgoingMessageQueue.TryDequeue(out string message))
+                {
+                    NetworkStream connectedStream;
+                    lock (connectionLock)
+                    {
+                        connectedStream = clientConnected ? stream : null;
+                    }
+
+                    if (connectedStream == null)
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        byte[] bytes = Encoding.UTF8.GetBytes(message);
+                        connectedStream.Write(bytes, 0, bytes.Length);
+                    }
+                    catch (Exception e)
+                    {
+                        if (!running) return;
+
+                        Debug.LogWarning($"Failed to send TCP message: {e.Message}");
+                        statusQueue.Enqueue($"Failed to send TCP message: {e.Message}");
+                        DisconnectCurrentClient(connectedStream);
+                        break;
+                    }
+                }
             }
         }
 
         // Reads bytes from a connected client until it disconnects, dispatching
         // each complete newline-terminated message. `pending` starts empty for
-        // every connection so a half-received line from a dead client cannot
-        // corrupt the next client's first message.
+        // every connection so a partial line cannot leak into the next one.
         private void ReadFromClient(NetworkStream clientStream)
         {
             byte[] buffer = new byte[4096];
@@ -134,8 +231,8 @@ namespace Assets.Scripts.SignalProcessing
             }
         }
 
-        // Pulls every complete '\n'-terminated message out of `pending`,
-        // enqueuing each one, and returns any partial remainder.
+        // Enqueues each complete '\n'-terminated message and returns any partial
+        // remainder to be completed by the next socket read.
         private string DispatchCompleteMessages(string pending)
         {
             int newlineIndex;
@@ -155,8 +252,11 @@ namespace Assets.Scripts.SignalProcessing
                     T parsedMessage = ParseJsonToObject(message);
                     messageQueue.Enqueue(parsedMessage);
                 }
-                catch
+                catch (Exception e)
                 {
+                    string error = $"Failed to dispatch TCP JSON frame: {e.Message}";
+                    Debug.LogError(error);
+                    statusQueue.Enqueue(error);
                 }
             }
 
@@ -176,16 +276,72 @@ namespace Assets.Scripts.SignalProcessing
             }
         }
 
+        private void DisconnectCurrentClient(NetworkStream connectedStream)
+        {
+            TcpClient connectedClient = null;
+
+            lock (connectionLock)
+            {
+                if (!ReferenceEquals(stream, connectedStream)) return;
+
+                clientConnected = false;
+                stream = null;
+                connectedClient = tcpClient;
+                tcpClient = null;
+            }
+
+            ClearOutgoingMessages();
+            try { connectedStream?.Close(); } catch { }
+            try { connectedClient?.Close(); } catch { }
+        }
+
+        private void ClearConnection(TcpClient connectedClient, NetworkStream connectedStream)
+        {
+            lock (connectionLock)
+            {
+                if (ReferenceEquals(stream, connectedStream))
+                {
+                    clientConnected = false;
+                    stream = null;
+                    tcpClient = null;
+                }
+            }
+
+            ClearOutgoingMessages();
+            try { connectedStream?.Close(); } catch { }
+            try { connectedClient?.Close(); } catch { }
+        }
+
+        private void ClearOutgoingMessages()
+        {
+            while (outgoingMessageQueue.TryDequeue(out _))
+            {
+            }
+        }
 
         public void CloseSocket()
         {
             running = false;
+            clientConnected = false;
+            outgoingMessageAvailable.Set();
 
-            try { stream?.Close(); } catch { }
-            try { tcpClient?.Close(); } catch { }
+            NetworkStream connectedStream;
+            TcpClient connectedClient;
+            lock (connectionLock)
+            {
+                connectedStream = stream;
+                connectedClient = tcpClient;
+                stream = null;
+                tcpClient = null;
+            }
+
+            try { connectedStream?.Close(); } catch { }
+            try { connectedClient?.Close(); } catch { }
             try { listener?.Stop(); } catch { }
 
             recievingThread?.Join(2500);
+            sendingThread?.Join(2500);
+            ClearOutgoingMessages();
             Debug.Log("Connection TCP Closed");
             statusQueue.Enqueue("Connection TCP Closed");
         }
