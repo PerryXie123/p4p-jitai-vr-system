@@ -125,7 +125,7 @@ public abstract class TrainingMode : MonoBehaviour
             DurationSeconds = elapsedTrainingSeconds,
             FocusedSeconds = focusedSeconds,
             FocusedPercentage = focusPercentage,
-            HrvThreshold = focusDataReceiver != null ? focusDataReceiver.HrvThreshold : 0f
+            LoadZThreshold = focusDataReceiver != null ? focusDataReceiver.LoadZThreshold : 0f
         });
 
         hasRecordedTrainingRun = true;

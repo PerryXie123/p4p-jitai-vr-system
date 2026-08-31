@@ -20,7 +20,6 @@ def build_vitals_message(args):
     return {
         "Type": "VitalsSnapshot",
         "RequestId": "",
-        "ProtocolVersion": 1,
         "Vitals": build_vital_snapshot(args),
     }
 

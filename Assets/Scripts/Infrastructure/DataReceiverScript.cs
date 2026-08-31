@@ -5,11 +5,8 @@ using UnityEngine;
 
 public class DataReceiverScript : MonoBehaviour
 {
-    [Header("Focus Thresholds")]
-    [SerializeField, Min(1f)] private float baselineHeartRate = 70f;
-    [SerializeField, Min(0.1f)] private float baselineRmssd = 40f;
-    [SerializeField, Min(0f)] private float allowedHeartRateIncrease = 10f;
-    [SerializeField, Range(0f, 1f)] private float hrvThreshold = 0.9f;
+    [Header("Physiological Load")]
+    [SerializeField, Min(0f)] private float loadZThreshold = 1f;
 
     [Header("Consumers")]
     [SerializeField] private AuditoryTraining auditoryTraining;
@@ -52,36 +49,35 @@ public class DataReceiverScript : MonoBehaviour
         tcpServer != null && tcpServer.IsClientConnected;
 
     public bool HasCalibratedBaseline => RuntimeBaselineState.IsValid;
-    public float BaselineHeartRate => baselineHeartRate;
-    public float BaselineRmssd => baselineRmssd;
+    public float BaselineHeartRate => RuntimeBaselineState.HeartRate;
+    public float BaselineRmssd => RuntimeBaselineState.Rmssd;
+    public float LoadZThreshold => loadZThreshold;
 
     /**
-     * Vitals pass when heart rate is no more than the configured amount above
-     * the participant's calm baseline and RMSSD remains at or above the
-     * configured proportion of its calm baseline.
+     * Vitals pass when neither HR nor inverse-lnRMSSD is elevated relative to
+     * the participant's calibrated baseline.
      */
     public bool AreVitalsPassing()
     {
         VitalSnapshot snapshot = CurrentVitals;
-
-        if (!HasReceivedData || snapshot == null
-            || float.IsNaN(snapshot.HeartRate) || float.IsInfinity(snapshot.HeartRate)
-            || float.IsNaN(snapshot.RMSSD) || float.IsInfinity(snapshot.RMSSD)
-            || snapshot.HeartRate <= 0f || snapshot.RMSSD <= 0f)
+        if (!HasReceivedData
+            || !RuntimeBaselineState.IsValid
+            || snapshot == null
+            || !IsFinitePositive(snapshot.HeartRate)
+            || !IsFinitePositive(snapshot.RMSSD))
         {
             return false;
         }
 
-        bool isHeartRatePassing =
-            snapshot.HeartRate <= baselineHeartRate + allowedHeartRateIncrease;
-        bool isRmssdPassing =
-            snapshot.RMSSD >= baselineRmssd * hrvThreshold;
+        float heartRateLoadZ = (snapshot.HeartRate - RuntimeBaselineState.HeartRate)
+            / RuntimeBaselineState.HeartRateStandardDeviation;
+        float hrvLoadZ = (RuntimeBaselineState.LnRmssd - Mathf.Log(snapshot.RMSSD))
+            / RuntimeBaselineState.LnRmssdStandardDeviation;
 
-        return isHeartRatePassing && isRmssdPassing;
+        return heartRateLoadZ < loadZThreshold && hrvLoadZ < loadZThreshold;
     }
 
     public bool IsFocused => GetPassingCheckCount() >= 2;
-    public float HrvThreshold => hrvThreshold;
 
     private void Awake()
     {
@@ -141,7 +137,6 @@ public class DataReceiverScript : MonoBehaviour
             return false;
         }
 
-        message.ProtocolVersion = SignalProcessingMessage.CurrentProtocolVersion;
         return tcpServer != null && tcpServer.TrySend(message);
     }
 
@@ -252,14 +247,6 @@ public class DataReceiverScript : MonoBehaviour
             return;
         }
 
-        if (message.ProtocolVersion != SignalProcessingMessage.CurrentProtocolVersion)
-        {
-            Debug.LogWarning(
-                $"Ignoring signal-processing protocol version {message.ProtocolVersion}.",
-                this);
-            return;
-        }
-
         switch (message.Type)
         {
             case MessageTypes.VitalsSnapshot:
@@ -293,6 +280,11 @@ public class DataReceiverScript : MonoBehaviour
             vitalSnapshot = snapshot;
             hasReceivedData = true;
         }
+
+        Debug.Log(
+            $"Vitals check: HR={snapshot.HeartRate:F2}, RMSSD={snapshot.RMSSD:F2}, "
+            + $"passing={AreVitalsPassing()}",
+            this);
     }
 
     private void HandleCalibrationStarted(
@@ -327,8 +319,21 @@ public class DataReceiverScript : MonoBehaviour
     {
         if (!RuntimeBaselineState.IsValid) return;
 
-        baselineHeartRate = RuntimeBaselineState.HeartRate;
-        baselineRmssd = RuntimeBaselineState.Rmssd;
+        Debug.Log(string.Format(
+            CultureInfo.InvariantCulture,
+            "Physiological baseline loaded: HR={0:F2}±{1:F2} bpm, "
+            + "lnRMSSD={2:F4}±{3:F4}, RMSSD={4:F2} ms",
+            RuntimeBaselineState.HeartRate,
+            RuntimeBaselineState.HeartRateStandardDeviation,
+            RuntimeBaselineState.LnRmssd,
+            RuntimeBaselineState.LnRmssdStandardDeviation,
+            RuntimeBaselineState.Rmssd),
+            this);
+    }
+
+    private static bool IsFinitePositive(float value)
+    {
+        return value > 0f && !float.IsNaN(value) && !float.IsInfinity(value);
     }
 
     private void UpdateConsumers()

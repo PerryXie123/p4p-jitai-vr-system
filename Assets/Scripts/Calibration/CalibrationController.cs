@@ -20,7 +20,7 @@ public class CalibrationController : MonoBehaviour
 {
     private const string MenuSceneName = "Menu";
     private const float StartAcknowledgementTimeoutSeconds = 5f;
-    private const float ResultTimeoutSeconds = 30f;
+    private const float ResultTimeoutSeconds = 120f;
 
     private static CalibrationController activeInstance;
 
@@ -32,7 +32,7 @@ public class CalibrationController : MonoBehaviour
     [SerializeField] private Button beginButton;
 
     [Header("Timing")]
-    [SerializeField, Range(60, 300)] private int calibrationDurationSeconds = 60;
+    [SerializeField, Range(180, 300)] private int calibrationDurationSeconds = 300;
 
     [Header("Connection")]
     [SerializeField] private DataReceiverScript dataReceiver;
@@ -47,11 +47,17 @@ public class CalibrationController : MonoBehaviour
 
     public CalibrationFlowState State { get; private set; } = CalibrationFlowState.Idle;
 
-    private float DurationSeconds => Mathf.Max(1, calibrationDurationSeconds);
+    // Existing scenes may still contain the previous 60-second serialized value.
+    // Treat that legacy value as the new five-minute default without modifying scenes.
+    private float DurationSeconds => calibrationDurationSeconds < 180
+        ? 300
+        : Mathf.Clamp(calibrationDurationSeconds, 180, 300);
 
     private void OnValidate()
     {
-        calibrationDurationSeconds = Mathf.Clamp(calibrationDurationSeconds, 60, 300);
+        calibrationDurationSeconds = calibrationDurationSeconds < 180
+            ? 300
+            : Mathf.Clamp(calibrationDurationSeconds, 180, 300);
     }
 
     private void Awake()
@@ -144,7 +150,7 @@ public class CalibrationController : MonoBehaviour
         SetBeginButtonState(false, "Starting...");
 
         Debug.Log(
-            $"Requesting a {calibrationDurationSeconds}-second calibration "
+            $"Requesting a {DurationSeconds}-second calibration "
             + $"({activeRequestId}).",
             this);
 
@@ -328,8 +334,14 @@ public class CalibrationController : MonoBehaviour
 
         Debug.Log(
             $"Calibration complete. Baseline HR: {payload.BaselineHeartRate:0.0} bpm; "
+            + $"HR SD: {payload.BaselineHeartRateStandardDeviation:0.00} bpm; "
             + $"RMSSD: {payload.BaselineRmssd:0.0} ms; "
-            + $"valid windows: {payload.ValidWindowCount}.",
+            + $"lnRMSSD: {payload.BaselineLnRmssd:0.0000}; "
+            + $"lnRMSSD SD: {payload.BaselineLnRmssdStandardDeviation:0.0000}; "
+            + $"window: {payload.WindowSeconds}s; "
+            + $"valid windows: {payload.ValidWindowCount}; "
+            + $"rejected windows: {payload.RejectedWindowCount}; "
+            + $"quality: {payload.SignalQuality:0.000}.",
             this);
     }
 

@@ -15,11 +15,8 @@ namespace Assets.Scripts.SignalProcessing
     [Serializable]
     public class SignalProcessingMessage
     {
-        public const int CurrentProtocolVersion = 1;
-
         public string Type;
         public string RequestId;
-        public int ProtocolVersion;
 
         public VitalSnapshot Vitals;
         public CalibrationStartPayload CalibrationStart;
@@ -60,8 +57,10 @@ namespace Assets.Scripts.SignalProcessing
     {
         public bool Success;
         public float BaselineHeartRate;
+        public float BaselineHeartRateStandardDeviation;
         public float BaselineRmssd;
         public float BaselineLnRmssd;
+        public float BaselineLnRmssdStandardDeviation;
         public float CapturedDurationSeconds;
         public int WindowSeconds;
         public int ValidWindowCount;

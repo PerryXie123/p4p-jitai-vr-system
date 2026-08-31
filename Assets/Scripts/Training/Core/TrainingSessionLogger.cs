@@ -261,7 +261,7 @@ public static class TrainingSessionLogger
             Cell.Text("visual weighted sum", 1),
             Cell.Text("visual weight sum", 1),
             Cell.Text("visual weighted average", 1),
-            Cell.Text("hrv threshold", 1)
+            Cell.Text("load z threshold", 1)
         });
 
         int rowNumber = 2;
@@ -318,7 +318,7 @@ public static class TrainingSessionLogger
                 Cell.Formula(visualSumFormula, running.VisualWeightedSum),
                 Cell.Formula(visualWeightFormula, running.VisualWeightSum),
                 Cell.Formula($"IF(Q{rowNumber}=0,\"\",P{rowNumber}/Q{rowNumber})", running.VisualWeightSum > 0f ? running.VisualAverage : (float?)null),
-                Cell.Number(record.HrvThreshold, 2)
+                Cell.Number(record.LoadZThreshold, 2)
             });
             rowNumber++;
         }
@@ -569,7 +569,7 @@ public static class TrainingSessionLogger
         public float DurationSeconds;
         public float FocusedSeconds;
         public float FocusedPercentage;
-        public float HrvThreshold;
+        public float LoadZThreshold;
     }
 
     private struct Cell

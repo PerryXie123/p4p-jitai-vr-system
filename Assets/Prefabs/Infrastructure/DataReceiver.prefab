@@ -45,9 +45,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: '::'
   port: 5005
-  baselineHeartRate: 70
-  baselineRmssd: 40
-  allowedHeartRateIncrease: 10
-  hrvThreshold: 0.9
+  loadZThreshold: 1
   eyeGazeThreshold: 0.5
   auditoryTraining: {fileID: 0}

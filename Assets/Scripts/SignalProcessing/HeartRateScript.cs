@@ -23,7 +23,6 @@ public class HeartRateScript : MonoBehaviour
         while (sensorClient.TryGetMessage(out SignalProcessingMessage message))
         {
             if (message != null
-                && message.ProtocolVersion == SignalProcessingMessage.CurrentProtocolVersion
                 && message.Type == MessageTypes.VitalsSnapshot
                 && message.Vitals != null)
             {
