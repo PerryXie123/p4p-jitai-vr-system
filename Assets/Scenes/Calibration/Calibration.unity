@@ -11060,7 +11060,8 @@ MonoBehaviour:
   startPanel: {fileID: 33325158}
   finishPanel: {fileID: 1766917575}
   beginButton: {fileID: 2028460811}
-  calibrationDurationSeconds: 60
+  calibrationDurationSeconds: 180
+  dataReceiver: {fileID: 0}
 --- !u!4 &193992509 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 2384488552515130820, guid: 8022ebd68cb5b6948be983bf7aa7b94e, type: 3}
@@ -44056,6 +44057,10 @@ MonoBehaviour:
   unfocusedEmissionIntensity: 5
   normalLightIntensity: 1
   unfocusedLightIntensity: 8
+  foliageWindControl: {fileID: 0}
+  driveFoliageWindOnlyInOriginalTrainingScene: 1
+  defaultFoliageWindSpeed: 0.14
+  defaultFoliageWindStrength: 0.25
 --- !u!4 &698665727 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 80438954398372704, guid: 9af567e72a97f044297c5f8063f6a5f3, type: 3}
@@ -126402,7 +126407,8 @@ MonoBehaviour:
   startPanel: {fileID: 33325158}
   finishPanel: {fileID: 1766917575}
   beginButton: {fileID: 2028460811}
-  calibrationDurationSeconds: 60
+  calibrationDurationSeconds: 300
+  dataReceiver: {fileID: 0}
 --- !u!4 &2004241021
 Transform:
   m_ObjectHideFlags: 0
