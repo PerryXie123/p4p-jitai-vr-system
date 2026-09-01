@@ -74,6 +74,19 @@ public class OpenTrainScript : MonoBehaviour
         SceneManager.LoadScene(MenuSceneName);
     }
 
+    public void QuitGame()
+    {
+        Debug.Log("quit pressed");
+        FinalizeActiveTrainingModes();
+        TrainingSessionLogger.EndSession();
+
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
+    }
+
     private void OnApplicationQuit()
     {
         FinalizeActiveTrainingModes();
