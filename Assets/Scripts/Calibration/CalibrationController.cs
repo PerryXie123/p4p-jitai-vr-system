@@ -21,6 +21,8 @@ public class CalibrationController : MonoBehaviour
     private const string MenuSceneName = "Menu";
     private const float StartAcknowledgementTimeoutSeconds = 5f;
     private const float ResultTimeoutSeconds = 120f;
+    private const int MinCalibrationDurationSeconds = 10;
+    private const int MaxCalibrationDurationSeconds = 300;
 
     private static CalibrationController activeInstance;
 
@@ -32,32 +34,43 @@ public class CalibrationController : MonoBehaviour
     [SerializeField] private Button beginButton;
 
     [Header("Timing")]
-    [SerializeField, Range(180, 300)] private int calibrationDurationSeconds = 300;
+    [SerializeField, Range(MinCalibrationDurationSeconds, MaxCalibrationDurationSeconds)]
+    private int calibrationDurationSeconds = 300;
+
+    [Header("Audio")]
+    [SerializeField] private AudioClip calibrationMusic;
+    [SerializeField, Range(0f, 1f)] private float calibrationMusicVolume = 0.7f;
+    [SerializeField, Min(0f)] private float musicFadeInSeconds = 2f;
+    [SerializeField, Min(0f)] private float musicFadeOutSeconds = 2f;
 
     [Header("Connection")]
     [SerializeField] private DataReceiverScript dataReceiver;
 
     private Coroutine calibrationRoutine;
+    private Coroutine musicFadeRoutine;
     private DataReceiverScript subscribedReceiver;
+    private AudioSource calibrationAudioSource;
     private TMP_Text beginButtonLabel;
     private string originalBeginButtonText = "Begin";
     private string activeRequestId;
     private float elapsedCalibrationSeconds;
     private bool isPrimaryInstance;
+    private bool isUsingSignalProcessingCalibration;
 
     public CalibrationFlowState State { get; private set; } = CalibrationFlowState.Idle;
 
-    // Existing scenes may still contain the previous 60-second serialized value.
-    // Treat that legacy value as the new five-minute default without modifying scenes.
-    private float DurationSeconds => calibrationDurationSeconds < 180
-        ? 300
-        : Mathf.Clamp(calibrationDurationSeconds, 180, 300);
+    private float DurationSeconds => Mathf.Clamp(
+        calibrationDurationSeconds,
+        MinCalibrationDurationSeconds,
+        MaxCalibrationDurationSeconds);
 
     private void OnValidate()
     {
-        calibrationDurationSeconds = calibrationDurationSeconds < 180
-            ? 300
-            : Mathf.Clamp(calibrationDurationSeconds, 180, 300);
+        calibrationDurationSeconds = Mathf.Clamp(
+            calibrationDurationSeconds,
+            MinCalibrationDurationSeconds,
+            MaxCalibrationDurationSeconds);
+        calibrationMusicVolume = Mathf.Clamp01(calibrationMusicVolume);
     }
 
     private void Awake()
@@ -75,6 +88,7 @@ public class CalibrationController : MonoBehaviour
         isPrimaryInstance = true;
 
         EnsureReferences();
+        EnsureAudioSource();
         SubscribeToReceiver();
 
         if (beginButton != null)
@@ -134,16 +148,20 @@ public class CalibrationController : MonoBehaviour
             return;
         }
 
-        if (dataReceiver == null || !dataReceiver.IsSignalProcessingConnected)
+        if (dataReceiver == null
+            || !dataReceiver.IsSignalProcessingConnected
+            || !dataReceiver.HasReceivedData)
         {
-            FailCalibration("Signal processing is not connected.");
+            StartCalibrationWithoutVitals();
             return;
         }
 
         StopCalibrationRoutine();
+        PlayCalibrationMusic();
         activeRequestId = Guid.NewGuid().ToString();
         elapsedCalibrationSeconds = 0f;
         State = CalibrationFlowState.AwaitingStartAcknowledgement;
+        isUsingSignalProcessingCalibration = true;
 
         if (startPanel != null) startPanel.SetActive(true);
         if (finishPanel != null) finishPanel.SetActive(false);
@@ -207,7 +225,8 @@ public class CalibrationController : MonoBehaviour
     {
         while (elapsedCalibrationSeconds < DurationSeconds)
         {
-            if (dataReceiver == null || !dataReceiver.IsSignalProcessingConnected)
+            if (isUsingSignalProcessingCalibration
+                && (dataReceiver == null || !dataReceiver.IsSignalProcessingConnected))
             {
                 calibrationRoutine = null;
                 FailCalibration("Signal processing disconnected during calibration.", false);
@@ -255,6 +274,12 @@ public class CalibrationController : MonoBehaviour
 
     private void OnCalibrationFinished()
     {
+        if (!isUsingSignalProcessingCalibration)
+        {
+            CompleteCalibrationWithoutVitals();
+            return;
+        }
+
         State = CalibrationFlowState.AwaitingResult;
 
         if (!dataReceiver.TryFinishCalibration(activeRequestId, elapsedCalibrationSeconds))
@@ -331,6 +356,7 @@ public class CalibrationController : MonoBehaviour
         SetBeginButtonState(false, originalBeginButtonText);
         if (startPanel != null) startPanel.SetActive(false);
         if (finishPanel != null) finishPanel.SetActive(true);
+        StopCalibrationMusic();
 
         Debug.Log(
             $"Calibration complete. Baseline HR: {payload.BaselineHeartRate:0.0} bpm; "
@@ -352,11 +378,14 @@ public class CalibrationController : MonoBehaviour
             StopCalibrationRoutine();
         }
 
+        StopCalibrationMusic();
+
         bool wasActive = State == CalibrationFlowState.AwaitingStartAcknowledgement
             || State == CalibrationFlowState.Collecting
             || State == CalibrationFlowState.AwaitingResult;
 
         if (wasActive
+            && isUsingSignalProcessingCalibration
             && !string.IsNullOrWhiteSpace(activeRequestId)
             && dataReceiver != null
             && dataReceiver.IsSignalProcessingConnected)
@@ -367,6 +396,7 @@ public class CalibrationController : MonoBehaviour
         State = CalibrationFlowState.Failed;
         activeRequestId = null;
         elapsedCalibrationSeconds = 0f;
+        isUsingSignalProcessingCalibration = false;
 
         if (startPanel != null) startPanel.SetActive(true);
         if (finishPanel != null) finishPanel.SetActive(false);
@@ -381,6 +411,7 @@ public class CalibrationController : MonoBehaviour
             || State == CalibrationFlowState.AwaitingResult;
 
         if (isActive
+            && isUsingSignalProcessingCalibration
             && !string.IsNullOrWhiteSpace(activeRequestId)
             && dataReceiver != null
             && dataReceiver.IsSignalProcessingConnected)
@@ -389,8 +420,10 @@ public class CalibrationController : MonoBehaviour
         }
 
         StopCalibrationRoutine();
+        StopCalibrationMusic();
         activeRequestId = null;
         elapsedCalibrationSeconds = 0f;
+        isUsingSignalProcessingCalibration = false;
 
         if (isActive)
         {
@@ -406,6 +439,43 @@ public class CalibrationController : MonoBehaviour
         if (startPanel != null) startPanel.SetActive(true);
         if (finishPanel != null) finishPanel.SetActive(false);
         SetBeginButtonState(true, originalBeginButtonText);
+    }
+
+    private void StartCalibrationWithoutVitals()
+    {
+        StopCalibrationRoutine();
+        PlayCalibrationMusic();
+        activeRequestId = null;
+        elapsedCalibrationSeconds = 0f;
+        State = CalibrationFlowState.Collecting;
+        isUsingSignalProcessingCalibration = false;
+
+        if (startPanel != null) startPanel.SetActive(false);
+        if (finishPanel != null) finishPanel.SetActive(false);
+        SetBeginButtonState(false, "Calibrating...");
+
+        Debug.Log(
+            $"No vitals stream detected; running a {DurationSeconds}-second calibration without physiological baseline capture.",
+            this);
+
+        calibrationRoutine = StartCoroutine(CalibrationRoutine());
+    }
+
+    private void CompleteCalibrationWithoutVitals()
+    {
+        State = CalibrationFlowState.Complete;
+        activeRequestId = null;
+        elapsedCalibrationSeconds = DurationSeconds;
+        isUsingSignalProcessingCalibration = false;
+
+        SetBeginButtonState(false, originalBeginButtonText);
+        if (startPanel != null) startPanel.SetActive(false);
+        if (finishPanel != null) finishPanel.SetActive(true);
+        StopCalibrationMusic();
+
+        Debug.Log(
+            "Calibration complete without vitals. No physiological baseline was stored.",
+            this);
     }
 
     private void StopCalibrationRoutine()
@@ -428,6 +498,87 @@ public class CalibrationController : MonoBehaviour
         {
             dataReceiver = FindFirstObjectByType<DataReceiverScript>();
         }
+    }
+
+    private void EnsureAudioSource()
+    {
+        if (calibrationAudioSource != null) return;
+
+        calibrationAudioSource = GetComponent<AudioSource>();
+        if (calibrationAudioSource == null)
+        {
+            calibrationAudioSource = gameObject.AddComponent<AudioSource>();
+        }
+
+        calibrationAudioSource.playOnAwake = false;
+        calibrationAudioSource.loop = true;
+        calibrationAudioSource.spatialBlend = 0f;
+        calibrationAudioSource.volume = 0f;
+    }
+
+    private void PlayCalibrationMusic()
+    {
+        if (calibrationMusic == null) return;
+
+        EnsureAudioSource();
+        StopMusicFadeRoutine();
+
+        calibrationAudioSource.clip = calibrationMusic;
+        calibrationAudioSource.loop = true;
+        calibrationAudioSource.volume = 0f;
+        calibrationAudioSource.Play();
+        musicFadeRoutine = StartCoroutine(FadeCalibrationMusic(calibrationMusicVolume, musicFadeInSeconds, false));
+    }
+
+    private void StopCalibrationMusic()
+    {
+        if (calibrationAudioSource == null || !calibrationAudioSource.isPlaying)
+        {
+            StopMusicFadeRoutine();
+            return;
+        }
+
+        StopMusicFadeRoutine();
+        musicFadeRoutine = StartCoroutine(FadeCalibrationMusic(0f, musicFadeOutSeconds, true));
+    }
+
+    private IEnumerator FadeCalibrationMusic(float targetVolume, float fadeSeconds, bool stopWhenDone)
+    {
+        if (calibrationAudioSource == null) yield break;
+
+        float startVolume = calibrationAudioSource.volume;
+        if (fadeSeconds <= 0f)
+        {
+            calibrationAudioSource.volume = targetVolume;
+        }
+        else
+        {
+            float elapsedSeconds = 0f;
+            while (elapsedSeconds < fadeSeconds)
+            {
+                elapsedSeconds += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsedSeconds / fadeSeconds);
+                calibrationAudioSource.volume = Mathf.Lerp(startVolume, targetVolume, t);
+                yield return null;
+            }
+        }
+
+        calibrationAudioSource.volume = targetVolume;
+        if (stopWhenDone)
+        {
+            calibrationAudioSource.Stop();
+            calibrationAudioSource.clip = null;
+        }
+
+        musicFadeRoutine = null;
+    }
+
+    private void StopMusicFadeRoutine()
+    {
+        if (musicFadeRoutine == null) return;
+
+        StopCoroutine(musicFadeRoutine);
+        musicFadeRoutine = null;
     }
 
     private void SubscribeToReceiver()

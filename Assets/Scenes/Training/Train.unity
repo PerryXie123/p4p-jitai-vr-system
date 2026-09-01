@@ -27573,6 +27573,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: '::'
   showFocusUI: 1
+  toggleKey: 116
+  toggleButton: {fileID: 0}
+  toggleButtonLabel: {fileID: 0}
+  createToggleButtonIfMissing: 1
+  toggleButtonOffset: {x: 0, y: -48}
+  toggleButtonSize: {x: 180, y: 42}
+  showLabel: Show Vitals
+  hideLabel: Hide Vitals
   statusText: {fileID: 1272223930}
   dataReceiver: {fileID: 0}
 --- !u!114 &431494776

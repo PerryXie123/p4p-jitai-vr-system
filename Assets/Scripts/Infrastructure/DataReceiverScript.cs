@@ -52,6 +52,9 @@ public class DataReceiverScript : MonoBehaviour
     public float BaselineHeartRate => RuntimeBaselineState.HeartRate;
     public float BaselineRmssd => RuntimeBaselineState.Rmssd;
     public float LoadZThreshold => loadZThreshold;
+    public bool AreVitalsAvailable => RuntimeBaselineState.IsValid
+        && HasValidHeartRate(CurrentVitals)
+        && HasValidRmssd(CurrentVitals);
 
     /**
      * Vitals pass when neither HR nor inverse-lnRMSSD is elevated relative to
@@ -90,7 +93,9 @@ public class DataReceiverScript : MonoBehaviour
         return hrvLoadZ < loadZThreshold;
     }
 
-    public bool IsFocused => GetPassingCheckCount() >= 2;
+    public bool IsFocused => AreVitalsAvailable
+        ? GetPassingCheckCount() >= 2
+        : IsLookingAtOrb;
 
     private void Awake()
     {
@@ -362,7 +367,7 @@ public class DataReceiverScript : MonoBehaviour
     {
         if (auditoryTraining != null)
         {
-            auditoryTraining.SetFocus(IsHeartRatePassing());
+            auditoryTraining.SetFocus(IsFocused);
         }
     }
 
