@@ -406,6 +406,7 @@ public class CalibrationController : MonoBehaviour
 
     private void CancelActiveCalibration(string reason)
     {
+        Debug.Log($"Cancelling active calibration: {reason}", this);
         bool isActive = State == CalibrationFlowState.AwaitingStartAcknowledgement
             || State == CalibrationFlowState.Collecting
             || State == CalibrationFlowState.AwaitingResult;
