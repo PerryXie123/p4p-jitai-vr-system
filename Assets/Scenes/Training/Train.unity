@@ -5686,7 +5686,7 @@ MonoBehaviour:
   finishPanel: {fileID: 1766917575}
   focusText: {fileID: 1272223928}
   focusDataReceiver: {fileID: 0}
-  trainingDurationSeconds: 21
+  trainingDurationSeconds: 1081
   dataReceiver: {fileID: 0}
   trainingAnimals:
   - {fileID: 146223585}
