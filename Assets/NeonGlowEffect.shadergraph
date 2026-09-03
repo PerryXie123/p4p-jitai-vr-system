@@ -147,9 +147,9 @@
         {
             "m_OutputSlot": {
                 "m_Node": {
-                    "m_Id": "31f637875b5e48db85ba2dae2b9e4553"
+                    "m_Id": "f38b217ca3794423883edfd6695477ea"
                 },
-                "m_SlotId": 0
+                "m_SlotId": 2
             },
             "m_InputSlot": {
                 "m_Node": {
@@ -161,9 +161,9 @@
         {
             "m_OutputSlot": {
                 "m_Node": {
-                    "m_Id": "3de51b6d028045eeb765a38d4ac4690b"
+                    "m_Id": "f38b217ca3794423883edfd6695477ea"
                 },
-                "m_SlotId": 0
+                "m_SlotId": 2
             },
             "m_InputSlot": {
                 "m_Node": {
@@ -2200,6 +2200,9 @@
         },
         {
             "m_Id": "635c00ef43244e6683a0f9bd6e8756b5"
+        },
+        {
+            "m_Id": "ad1a841db3c54300a8b963338b46c61e"
         }
     ],
     "synonyms": [
@@ -2218,6 +2221,36 @@
     "m_FunctionSource": "b3aa1cf2d3084bc0b9c5d1b8d585f955",
     "m_FunctionSourceUsePragmas": true,
     "m_FunctionBody": "Enter function body here..."
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.ColorRGBMaterialSlot",
+    "m_ObjectId": "ad1a841db3c54300a8b963338b46c61e",
+    "m_Id": 2,
+    "m_DisplayName": "PhaseColor",
+    "m_SlotType": 1,
+    "m_Hidden": false,
+    "m_ShaderOutputName": "PhaseColor",
+    "m_StageCapability": 3,
+    "m_Value": {
+        "x": 0.0,
+        "y": 0.65,
+        "z": 1.0
+    },
+    "m_DefaultValue": {
+        "x": 0.0,
+        "y": 0.65,
+        "z": 1.0
+    },
+    "m_Labels": [],
+    "m_ColorMode": 0,
+    "m_DefaultColor": {
+        "r": 0.0,
+        "g": 0.65,
+        "b": 1.0,
+        "a": 1.0
+    }
 }
 
 {
@@ -2340,4 +2373,3 @@
         "a": 1.0
     }
 }
-
