@@ -27572,7 +27572,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3da84d72c3ea5ca4b94c6adbec404f11, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
-  showFocusUI: 1
+  showFocusUI: 0
   toggleKey: 116
   toggleButton: {fileID: 0}
   toggleButtonLabel: {fileID: 0}
@@ -128951,7 +128951,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4483999970917742656, guid: dfb23d60f30c46847ba7815aa09e2567, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 0.41722828
+      value: 0.69519717
       objectReference: {fileID: 0}
     - target: {fileID: 4483999970917742656, guid: dfb23d60f30c46847ba7815aa09e2567, type: 3}
       propertyPath: m_LocalRotation.x
@@ -128959,7 +128959,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4483999970917742656, guid: dfb23d60f30c46847ba7815aa09e2567, type: 3}
       propertyPath: m_LocalRotation.y
-      value: -0.90880173
+      value: -0.71881914
       objectReference: {fileID: 0}
     - target: {fileID: 4483999970917742656, guid: dfb23d60f30c46847ba7815aa09e2567, type: 3}
       propertyPath: m_LocalRotation.z
@@ -128971,7 +128971,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4483999970917742656, guid: dfb23d60f30c46847ba7815aa09e2567, type: 3}
       propertyPath: m_LocalEulerAnglesHint.y
-      value: -130.681
+      value: -91.914
       objectReference: {fileID: 0}
     - target: {fileID: 4483999970917742656, guid: dfb23d60f30c46847ba7815aa09e2567, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z

@@ -10044,7 +10044,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3da84d72c3ea5ca4b94c6adbec404f11, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
-  showFocusUI: 1
+  showFocusUI: 0
   statusText: {fileID: 109944957}
   dataReceiver: {fileID: 0}
 --- !u!114 &1002308517

@@ -13,13 +13,32 @@ public class VisualTraining : TrainingMode
     [SerializeField, Range(0.1f, 30f)] private float additionalSetSpawnInterval = 5f;
     [SerializeField, Range(0.1f, 5f)] private float fadeInSeconds = 0.75f;
     [SerializeField, Range(0.1f, 5f)] private float fadeOutSeconds = 2f;
+    [SerializeField, Range(1f, 60f)] private float maxAnimalVisibleSeconds = 15f;
     [SerializeField, Range(0f, 45f)] private float fadeInRotationVariation = 20f;
 
     private TrainingAnimalVisual[] originalAnimalVisuals;
-    private readonly List<TrainingAnimalVisual[]> animalSets = new();
+    private readonly List<AnimalSetState> animalSets = new();
     private float focusTimer;
     private bool animalSetsHaveAppeared;
     private bool positionsResetAfterFade;
+
+    private sealed class AnimalSetState
+    {
+        public AnimalSetState(TrainingAnimalVisual[] visuals)
+        {
+            Visuals = visuals;
+        }
+
+        public TrainingAnimalVisual[] Visuals { get; }
+        public float VisibleSeconds { get; set; }
+        public bool HasExpired { get; set; }
+
+        public void ResetLifetime()
+        {
+            VisibleSeconds = 0f;
+            HasExpired = false;
+        }
+    }
 
     private void Awake()
     {
@@ -74,6 +93,10 @@ public class VisualTraining : TrainingMode
             if (!animalSetsHaveAppeared)
             {
                 animalSetsHaveAppeared = true;
+                if (animalSets.Count > 0)
+                {
+                    animalSets[0].ResetLifetime();
+                }
             }
             else
             {
@@ -81,7 +104,6 @@ public class VisualTraining : TrainingMode
             }
         }
 
-        // Refocusing during a fade restores every existing set immediately.
         FadeAnimalsToward(animalSetsHaveAppeared);
     }
 
@@ -109,7 +131,7 @@ public class VisualTraining : TrainingMode
             originalAnimalVisuals[i] = PrepareAnimal(animal);
         }
 
-        animalSets.Add(originalAnimalVisuals);
+        animalSets.Add(new AnimalSetState(originalAnimalVisuals));
     }
 
     private static TrainingAnimalVisual PrepareAnimal(GameObject animal)
@@ -143,7 +165,7 @@ public class VisualTraining : TrainingMode
             newSet[i] = copyVisual;
         }
 
-        animalSets.Add(newSet);
+        animalSets.Add(new AnimalSetState(newSet));
     }
 
     private void FadeAnimalsToward(bool shouldBeVisible)
@@ -160,18 +182,36 @@ public class VisualTraining : TrainingMode
 
         bool allAnimalsHidden = true;
 
-        foreach (TrainingAnimalVisual[] animalSet in animalSets)
+        foreach (AnimalSetState animalSet in animalSets)
         {
-            foreach (TrainingAnimalVisual visual in animalSet)
+            bool setShouldBeVisible = shouldBeVisible && !animalSet.HasExpired;
+
+            if (setShouldBeVisible)
+            {
+                animalSet.VisibleSeconds += Time.deltaTime;
+                if (animalSet.VisibleSeconds >= maxAnimalVisibleSeconds)
+                {
+                    animalSet.HasExpired = true;
+                    setShouldBeVisible = false;
+                }
+            }
+            else if (!shouldBeVisible)
+            {
+                animalSet.ResetLifetime();
+            }
+
+            foreach (TrainingAnimalVisual visual in animalSet.Visuals)
             {
                 if (visual == null) continue;
 
-                float targetVisibility = shouldBeVisible ? 1f : 0f;
+                float targetVisibility = setShouldBeVisible ? 1f : 0f;
                 float fadeSeconds = targetVisibility > visual.Visibility ? fadeInSeconds : fadeOutSeconds;
                 visual.MoveVisibilityToward(targetVisibility, fadeSeconds, fadeInRotationVariation);
                 allAnimalsHidden &= visual.Visibility <= 0f;
             }
         }
+
+        RemoveExpiredHiddenAdditionalAnimalSets();
 
         if (!shouldBeVisible && allAnimalsHidden && !positionsResetAfterFade)
         {
@@ -186,7 +226,7 @@ public class VisualTraining : TrainingMode
     {
         for (int setIndex = animalSets.Count - 1; setIndex >= 1; setIndex--)
         {
-            foreach (TrainingAnimalVisual visual in animalSets[setIndex])
+            foreach (TrainingAnimalVisual visual in animalSets[setIndex].Visuals)
             {
                 if (visual != null)
                 {
@@ -201,6 +241,46 @@ public class VisualTraining : TrainingMode
         {
             if (visual != null) visual.ResetToStartingPosition();
         }
+
+        if (animalSets.Count > 0)
+        {
+            animalSets[0].ResetLifetime();
+        }
+    }
+
+    private void RemoveExpiredHiddenAdditionalAnimalSets()
+    {
+        for (int setIndex = animalSets.Count - 1; setIndex >= 1; setIndex--)
+        {
+            AnimalSetState animalSet = animalSets[setIndex];
+            if (!animalSet.HasExpired || !AllAnimalsHidden(animalSet.Visuals))
+            {
+                continue;
+            }
+
+            foreach (TrainingAnimalVisual visual in animalSet.Visuals)
+            {
+                if (visual != null)
+                {
+                    Destroy(visual.gameObject);
+                }
+            }
+
+            animalSets.RemoveAt(setIndex);
+        }
+    }
+
+    private static bool AllAnimalsHidden(TrainingAnimalVisual[] visuals)
+    {
+        foreach (TrainingAnimalVisual visual in visuals)
+        {
+            if (visual != null && visual.Visibility > 0f)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private void HideAnimalsImmediately()
