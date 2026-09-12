@@ -7121,6 +7121,41 @@ MonoBehaviour:
   triggerClip: {fileID: 8300000, guid: 40e9c2b7fb5f530489bbace64f19d15a, type: 3}
   triggerVolume: 1
   focusTriggerTime: 5
+  ambientClip: {fileID: 8300000, guid: 7576d5fd7f67956408e1b537603f2fad, type: 3}
+  ambientVolume: 0.65
+  ambientUnfocusedDelay: 5
+  ambientFadeInPerSecond: 12
+  ambientFadeOutPerSecond: 20
+  distractionClips:
+  - {fileID: 8300000, guid: f45950ae4c542b9499ffb3eea5fff037, type: 3}
+  - {fileID: 8300000, guid: b400140965c43584bbdfa1b50f2b6719, type: 3}
+  - {fileID: 8300000, guid: 190ca6336d4c83b4da6bf3c55c35b51c, type: 3}
+  - {fileID: 8300000, guid: 847c027ea3857974ea8a09c2b56f234c, type: 3}
+  - {fileID: 8300000, guid: 292c5648ee64294458b00137f6aee689, type: 3}
+  - {fileID: 8300000, guid: 412e697ba6158834585305758387d3a5, type: 3}
+  - {fileID: 8300000, guid: 9a858fcce2a13da4598fbdc6fadb1308, type: 3}
+  - {fileID: 8300000, guid: f838476e2e7e0b248b90a78b1c40755e, type: 3}
+  - {fileID: 8300000, guid: 4f7006739cb2f714cb065cce336cd9a4, type: 3}
+  - {fileID: 8300000, guid: 97c87c726e3e1ff49b71a1196e6fda14, type: 3}
+  - {fileID: 8300000, guid: cf36d770baf0e1842b1254fdff42bb5e, type: 3}
+  - {fileID: 8300000, guid: d8cebd3d48449f447af7327e980aeaa5, type: 3}
+  - {fileID: 8300000, guid: 4ad36b2b30f354841996be04325b7666, type: 3}
+  - {fileID: 8300000, guid: 3d2e65d71e45177469fe1c534e71d799, type: 3}
+  - {fileID: 8300000, guid: a6cc5a0e31b70e34588d127204095d72, type: 3}
+  - {fileID: 8300000, guid: 7d0ed5ca8b2c8f441b7d833ef56b9715, type: 3}
+  - {fileID: 8300000, guid: 27da2314b03833e418a0ba0c8d5247e6, type: 3}
+  - {fileID: 8300000, guid: c347c18aae896df4b9e64fab146944e3, type: 3}
+  - {fileID: 8300000, guid: 5fce77ce9dc226e459716da9505ce5aa, type: 3}
+  - {fileID: 8300000, guid: eb5b61a12bb963c409481b20e62e770c, type: 3}
+  - {fileID: 8300000, guid: 41ce88bf8f8bb9640b816d9772e9eee3, type: 3}
+  - {fileID: 8300000, guid: 3dfaa7a17c865bd4a898b94e06e5f966, type: 3}
+  soundsPerDistractionSet: 3
+  focusSecondsBeforeDistractionsAppear: 5
+  additionalSetSpawnInterval: 5
+  distractionVolume: 0.35
+  distractionFadeInSeconds: 0.75
+  distractionFadeOutSeconds: 2
+  maxDistractionSetActiveSeconds: 15
   playTestToneOnStart: 0
   testToneFrequency: 880
   testToneDuration: 0.5

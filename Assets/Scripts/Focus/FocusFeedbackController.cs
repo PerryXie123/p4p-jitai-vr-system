@@ -72,7 +72,7 @@ public class FocusFeedbackController : MonoBehaviour
         if (ambientAudioSource == null)
         {
             AuditoryTraining auditoryTraining = FindFirstObjectByType<AuditoryTraining>();
-            if (auditoryTraining != null)
+            if (auditoryTraining != null && !auditoryTraining.ManagesAmbientAudio)
             {
                 ambientAudioSource = auditoryTraining.MainAudioSource;
                 normalAmbientVolume = auditoryTraining.MainVolume;
