@@ -2741,7 +2741,7 @@ MonoBehaviour:
   finishPanel: {fileID: 174086945}
   focusText: {fileID: 109944955}
   focusDataReceiver: {fileID: 0}
-  trainingDurationSeconds: 3
+  trainingDurationSeconds: 480
   dataReceiver: {fileID: 0}
   trainingAnimals:
   - {fileID: 1154685890}
@@ -7114,7 +7114,7 @@ MonoBehaviour:
   finishPanel: {fileID: 174086945}
   focusText: {fileID: 109944955}
   focusDataReceiver: {fileID: 0}
-  trainingDurationSeconds: 3
+  trainingDurationSeconds: 480
   mainAudio: {fileID: 470195537}
   mainVolume: 1
   oneShotAudio: {fileID: 1831752386}
@@ -7123,7 +7123,6 @@ MonoBehaviour:
   focusTriggerTime: 5
   ambientClip: {fileID: 8300000, guid: 7576d5fd7f67956408e1b537603f2fad, type: 3}
   ambientVolume: 0.65
-  ambientUnfocusedDelay: 5
   ambientFadeInPerSecond: 12
   ambientFadeOutPerSecond: 20
   distractionClips:

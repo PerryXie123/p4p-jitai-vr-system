@@ -18,7 +18,6 @@ public class AuditoryTraining : TrainingMode
     [Header("Ambient Distraction")]
     [SerializeField] private AudioClip ambientClip;
     [SerializeField, Range(0f, 1f)] private float ambientVolume = 0.65f;
-    [SerializeField, Range(0.5f, 30f)] private float ambientUnfocusedDelay = 5f;
     [SerializeField, Range(0f, 100f)] private float ambientFadeInPerSecond = 12f;
     [SerializeField, Range(0f, 100f)] private float ambientFadeOutPerSecond = 20f;
 
@@ -38,9 +37,9 @@ public class AuditoryTraining : TrainingMode
     [SerializeField, Range(0.1f, 3f)] private float testToneDuration = 0.5f;
 
     private bool isFocused = false;
+    private bool isLookingAtOrb = false;
     private float focusTimer = 0f;
     private float distractionFocusTimer = 0f;
-    private float unfocusedTimer = 0f;
     private float currentAmbientAmount = 0f;
     private bool hasPlayed = false;
     private AudioSource fallbackAudioSource;
@@ -136,6 +135,11 @@ public class AuditoryTraining : TrainingMode
         Debug.Log("Focus: " + focused);
     }
 
+    public void SetOrbFocus(bool focused)
+    {
+        isLookingAtOrb = focused;
+    }
+
     private void PlayTrigger()
     {
         if (oneShotAudio == null)
@@ -160,7 +164,6 @@ public class AuditoryTraining : TrainingMode
         if (mainAudio != null) mainAudio.Stop();
         if (oneShotAudio != null) oneShotAudio.Stop();
         if (fallbackAudioSource != null) fallbackAudioSource.Stop();
-        unfocusedTimer = 0f;
         currentAmbientAmount = 0f;
         StopDistractionSoundSetsImmediately();
     }
@@ -192,7 +195,6 @@ public class AuditoryTraining : TrainingMode
         mainAudio.clip = ambientClip;
         mainAudio.loop = true;
         mainAudio.volume = 0f;
-        unfocusedTimer = 0f;
         currentAmbientAmount = 0f;
         mainAudio.Play();
     }
@@ -206,25 +208,19 @@ public class AuditoryTraining : TrainingMode
             mainAudio.Play();
         }
 
-        if (!IsTrainingActive || isFocused)
+        if (IsTrainingActive && isLookingAtOrb)
         {
-            unfocusedTimer = 0f;
+            currentAmbientAmount = Mathf.MoveTowards(
+                currentAmbientAmount,
+                100f,
+                ambientFadeInPerSecond * Time.deltaTime);
+        }
+        else
+        {
             currentAmbientAmount = Mathf.MoveTowards(
                 currentAmbientAmount,
                 0f,
                 ambientFadeOutPerSecond * Time.deltaTime);
-        }
-        else
-        {
-            unfocusedTimer += Time.deltaTime;
-
-            if (unfocusedTimer >= ambientUnfocusedDelay)
-            {
-                currentAmbientAmount = Mathf.MoveTowards(
-                    currentAmbientAmount,
-                    100f,
-                    ambientFadeInPerSecond * Time.deltaTime);
-            }
         }
 
         mainAudio.volume = ambientVolume * currentAmbientAmount / 100f;

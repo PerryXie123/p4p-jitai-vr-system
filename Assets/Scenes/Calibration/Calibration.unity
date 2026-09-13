@@ -11060,7 +11060,7 @@ MonoBehaviour:
   startPanel: {fileID: 33325158}
   finishPanel: {fileID: 1766917575}
   beginButton: {fileID: 2028460811}
-  calibrationDurationSeconds: 180
+  calibrationDurationSeconds: 300
   dataReceiver: {fileID: 0}
 --- !u!4 &193992509 stripped
 Transform:

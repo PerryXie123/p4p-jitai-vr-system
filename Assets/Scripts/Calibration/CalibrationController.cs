@@ -35,7 +35,7 @@ public class CalibrationController : MonoBehaviour
 
     [Header("Timing")]
     [SerializeField, Range(MinCalibrationDurationSeconds, MaxCalibrationDurationSeconds)]
-    private int calibrationDurationSeconds = 300;
+    private int calibrationDurationSeconds = 20;
 
     [Header("Audio")]
     [SerializeField] private AudioClip calibrationMusic;

@@ -52,6 +52,7 @@ public class OrbFocus : MonoBehaviour
         if (dataReceiver == null && auditoryTraining != null)
         {
             auditoryTraining.SetFocus(true);
+            auditoryTraining.SetOrbFocus(true);
         }
     }
 
@@ -67,6 +68,7 @@ public class OrbFocus : MonoBehaviour
         if (dataReceiver == null && auditoryTraining != null)
         {
             auditoryTraining.SetFocus(false);
+            auditoryTraining.SetOrbFocus(false);
         }
     }
 }

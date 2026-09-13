@@ -6,7 +6,7 @@ using UnityEngine;
 public class DataReceiverScript : MonoBehaviour
 {
     [Header("Physiological Load")]
-    [SerializeField, Min(0f)] private float heartRateIncreaseThreshold = 0.03f;
+    [SerializeField, Min(0f)] private float heartRateIncreaseThreshold = 0.1f;
     [SerializeField, Min(0f)] private float loadZThreshold = 1f;
 
     [Header("Consumers")]
@@ -370,6 +370,7 @@ public class DataReceiverScript : MonoBehaviour
         if (auditoryTraining != null)
         {
             auditoryTraining.SetFocus(IsFocused);
+            auditoryTraining.SetOrbFocus(IsLookingAtOrb);
         }
     }
 

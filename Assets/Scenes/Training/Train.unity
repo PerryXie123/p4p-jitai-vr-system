@@ -5686,7 +5686,7 @@ MonoBehaviour:
   finishPanel: {fileID: 1766917575}
   focusText: {fileID: 1272223928}
   focusDataReceiver: {fileID: 0}
-  trainingDurationSeconds: 300
+  trainingDurationSeconds: 400
   dataReceiver: {fileID: 0}
   trainingAnimals:
   - {fileID: 146223585}
@@ -48240,16 +48240,15 @@ MonoBehaviour:
   finishPanel: {fileID: 1766917575}
   focusText: {fileID: 1272223928}
   focusDataReceiver: {fileID: 0}
-  trainingDurationSeconds: 300
+  trainingDurationSeconds: 400
   mainAudio: {fileID: 1813912033}
-  mainVolume: 1
+  mainVolume: 0.199
   oneShotAudio: {fileID: 1855878539}
   triggerClip: {fileID: 8300000, guid: 40e9c2b7fb5f530489bbace64f19d15a, type: 3}
-  triggerVolume: 1
-  focusTriggerTime: 5
+  triggerVolume: 0
+  focusTriggerTime: 30
   ambientClip: {fileID: 8300000, guid: 7576d5fd7f67956408e1b537603f2fad, type: 3}
-  ambientVolume: 0.65
-  ambientUnfocusedDelay: 5
+  ambientVolume: 0.224
   ambientFadeInPerSecond: 12
   ambientFadeOutPerSecond: 20
   distractionClips:
@@ -48275,10 +48274,10 @@ MonoBehaviour:
   - {fileID: 8300000, guid: eb5b61a12bb963c409481b20e62e770c, type: 3}
   - {fileID: 8300000, guid: 41ce88bf8f8bb9640b816d9772e9eee3, type: 3}
   - {fileID: 8300000, guid: 3dfaa7a17c865bd4a898b94e06e5f966, type: 3}
-  soundsPerDistractionSet: 3
-  focusSecondsBeforeDistractionsAppear: 5
-  additionalSetSpawnInterval: 5
-  distractionVolume: 0.35
+  soundsPerDistractionSet: 2
+  focusSecondsBeforeDistractionsAppear: 10
+  additionalSetSpawnInterval: 10
+  distractionVolume: 0.185
   distractionFadeInSeconds: 0.75
   distractionFadeOutSeconds: 2
   maxDistractionSetActiveSeconds: 15
@@ -91648,6 +91647,18 @@ MonoBehaviour:
   triggerClip: {fileID: 0}
   triggerVolume: 1
   focusTriggerTime: 5
+  ambientClip: {fileID: 0}
+  ambientVolume: 0.65
+  ambientFadeInPerSecond: 12
+  ambientFadeOutPerSecond: 20
+  distractionClips: []
+  soundsPerDistractionSet: 3
+  focusSecondsBeforeDistractionsAppear: 5
+  additionalSetSpawnInterval: 5
+  distractionVolume: 0.35
+  distractionFadeInSeconds: 0.75
+  distractionFadeOutSeconds: 2
+  maxDistractionSetActiveSeconds: 15
   playTestToneOnStart: 1
   testToneFrequency: 880
   testToneDuration: 0.5
@@ -139099,7 +139110,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: The training will last for 5 minutes. Focus on the glowing orb, and synchronise
+  m_text: The training will last for 8 minutes. Focus on the glowing orb, and synchronise
     your breathing with its pulse and colours.
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
