@@ -8,6 +8,54 @@ using UnityEngine;
 
 namespace Assets.Scripts.SignalProcessing
 {
+    internal sealed class SignalProcessingSocket
+    {
+        private static SignalProcessingSocket instance;
+        private readonly TcpGameServer<SignalProcessingMessage> tcpServer;
+
+        public static SignalProcessingSocket Instance
+        {
+            get
+            {
+                if (instance == null)
+                {
+                    instance = new SignalProcessingSocket();
+                }
+
+                return instance;
+            }
+        }
+
+        public bool IsClientConnected => tcpServer.IsClientConnected;
+
+        private SignalProcessingSocket()
+        {
+            tcpServer = new TcpGameServer<SignalProcessingMessage>();
+            tcpServer.InitConnection();
+        }
+
+        public bool TryGetMessage(out SignalProcessingMessage message)
+        {
+            return tcpServer.TryGetMessage(out message);
+        }
+
+        public bool TryGetError(out string error)
+        {
+            return tcpServer.TryGetError(out error);
+        }
+
+        public bool TrySend(SignalProcessingMessage message)
+        {
+            return tcpServer.TrySend(message);
+        }
+
+        public void Close()
+        {
+            tcpServer.CloseSocket();
+            instance = null;
+        }
+    }
+
     internal class TcpGameServer<T>
     {
         public string serverIP { get; set; } = "127.0.0.1";
