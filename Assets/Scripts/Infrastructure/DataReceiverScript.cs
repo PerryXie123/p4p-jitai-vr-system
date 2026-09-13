@@ -2,9 +2,12 @@ using Assets.Scripts.SignalProcessing;
 using System;
 using System.Globalization;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class DataReceiverScript : MonoBehaviour
 {
+    public static DataReceiverScript Instance { get; private set; }
+
     [Header("Physiological Load")]
     [SerializeField, Min(0f)] private float heartRateIncreaseThreshold = 0.1f;
     [SerializeField, Min(0f)] private float loadZThreshold = 1f;
@@ -12,7 +15,7 @@ public class DataReceiverScript : MonoBehaviour
     [Header("Consumers")]
     [SerializeField] private AuditoryTraining auditoryTraining;
 
-    private TcpGameServer<SignalProcessingMessage> tcpServer;
+    private SignalProcessingSocket signalProcessingSocket;
     private readonly object dataLock = new object();
 
     private VitalSnapshot vitalSnapshot;
@@ -47,7 +50,7 @@ public class DataReceiverScript : MonoBehaviour
     }
 
     public bool IsSignalProcessingConnected =>
-        tcpServer != null && tcpServer.IsClientConnected;
+        signalProcessingSocket != null && signalProcessingSocket.IsClientConnected;
 
     public bool HasCalibratedBaseline => RuntimeBaselineState.IsValid;
     public float BaselineHeartRate => RuntimeBaselineState.HeartRate;
@@ -65,6 +68,18 @@ public class DataReceiverScript : MonoBehaviour
     public bool AreVitalsPassing()
     {
         return IsHeartRatePassing() && IsRmssdPassing();
+    }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    private static void EnsureReceiverExists()
+    {
+        if (Instance != null || FindFirstObjectByType<DataReceiverScript>() != null)
+        {
+            return;
+        }
+
+        GameObject receiverObject = new GameObject(nameof(DataReceiverScript));
+        receiverObject.AddComponent<DataReceiverScript>();
     }
 
     public bool IsHeartRatePassing()
@@ -101,22 +116,34 @@ public class DataReceiverScript : MonoBehaviour
 
     private void Awake()
     {
-        if (auditoryTraining == null)
+        if (Instance != null && Instance != this)
         {
-            auditoryTraining = FindFirstObjectByType<AuditoryTraining>();
+            Destroy(gameObject);
+            return;
         }
 
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+        SceneManager.sceneLoaded += OnSceneLoaded;
+
+        BindSceneConsumers();
+
         ApplyStoredBaseline();
+        StartReceiver();
     }
 
     private void Start()
     {
-        StartReceiver();
     }
 
     private void OnDestroy()
     {
-        StopReceiver();
+        if (Instance == this)
+        {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+            StopReceiver();
+            Instance = null;
+        }
     }
 
     public void SetOrbFocus(bool focused)
@@ -166,7 +193,7 @@ public class DataReceiverScript : MonoBehaviour
             return false;
         }
 
-        return tcpServer != null && tcpServer.TrySend(message);
+        return signalProcessingSocket != null && signalProcessingSocket.TrySend(message);
     }
 
     public bool TryStartCalibration(string requestId, float requestedDurationSeconds)
@@ -238,10 +265,10 @@ public class DataReceiverScript : MonoBehaviour
     {
         try
         {
-            if (tcpServer != null) return;
-
-            tcpServer = new TcpGameServer<SignalProcessingMessage>();
-            tcpServer.InitConnection();
+            if (signalProcessingSocket == null)
+            {
+                signalProcessingSocket = SignalProcessingSocket.Instance;
+            }
         }
         catch (Exception ex)
         {
@@ -251,15 +278,15 @@ public class DataReceiverScript : MonoBehaviour
 
     private void StopReceiver()
     {
-        tcpServer?.CloseSocket();
-        tcpServer = null;
+        signalProcessingSocket?.Close();
+        signalProcessingSocket = null;
     }
 
     private void Update()
     {
-        if (tcpServer != null)
+        if (signalProcessingSocket != null)
         {
-            while (tcpServer.TryGetMessage(out SignalProcessingMessage message))
+            while (signalProcessingSocket.TryGetMessage(out SignalProcessingMessage message))
             {
                 RouteMessage(message);
             }
@@ -358,6 +385,20 @@ public class DataReceiverScript : MonoBehaviour
             RuntimeBaselineState.LnRmssdStandardDeviation,
             RuntimeBaselineState.Rmssd),
             this);
+    }
+
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        BindSceneConsumers();
+        UpdateConsumers();
+    }
+
+    private void BindSceneConsumers()
+    {
+        if (auditoryTraining == null)
+        {
+            auditoryTraining = FindFirstObjectByType<AuditoryTraining>();
+        }
     }
 
     private static bool IsFinitePositive(float value)

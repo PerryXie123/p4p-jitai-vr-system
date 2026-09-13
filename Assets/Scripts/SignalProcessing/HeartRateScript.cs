@@ -1,16 +1,15 @@
-using Assets.Scripts.SignalProcessing;
 using TMPro;
 using UnityEngine;
 
 public class HeartRateScript : MonoBehaviour
 {
-    private TcpGameServer<SignalProcessingMessage> sensorClient;
+    private DataReceiverScript dataReceiver;
     public TextMeshProUGUI heartRateText;
     public TextMeshProUGUI statusText;
 
     private void Start()
     {
-        InitSensorSocket();
+        dataReceiver = DataReceiverScript.Instance ?? FindFirstObjectByType<DataReceiverScript>();
     }
 
     private void Update()
@@ -20,30 +19,19 @@ public class HeartRateScript : MonoBehaviour
 
     private void UpdateLabels()
     {
-        while (sensorClient.TryGetMessage(out SignalProcessingMessage message))
+        if (dataReceiver == null)
         {
-            if (message != null
-                && message.Type == MessageTypes.VitalsSnapshot
-                && message.Vitals != null)
-            {
-                heartRateText.text = message.Vitals.PrintVitals();
-            }
+            dataReceiver = DataReceiverScript.Instance ?? FindFirstObjectByType<DataReceiverScript>();
+            return;
         }
 
-        if (sensorClient.TryGetError(out string error))
+        if (dataReceiver.HasReceivedData && dataReceiver.CurrentVitals != null)
         {
-            statusText.text = $"Status: {error}";
+            heartRateText.text = dataReceiver.CurrentVitals.PrintVitals();
         }
-    }
 
-    private void OnDestroy()
-    {
-        sensorClient?.CloseSocket();
-    }
-
-    private void InitSensorSocket()
-    {
-        sensorClient = new TcpGameServer<SignalProcessingMessage>();
-        sensorClient.InitConnection();
+        statusText.text = dataReceiver.IsSignalProcessingConnected
+            ? "Status: Client connected"
+            : "Status: Listening...";
     }
 }
