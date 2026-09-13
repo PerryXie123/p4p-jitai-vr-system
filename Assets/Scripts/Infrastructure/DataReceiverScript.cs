@@ -6,6 +6,7 @@ using UnityEngine;
 public class DataReceiverScript : MonoBehaviour
 {
     [Header("Physiological Load")]
+    [SerializeField, Min(0f)] private float heartRateIncreaseThreshold = 0.03f;
     [SerializeField, Min(0f)] private float loadZThreshold = 1f;
 
     [Header("Consumers")]
@@ -51,6 +52,7 @@ public class DataReceiverScript : MonoBehaviour
     public bool HasCalibratedBaseline => RuntimeBaselineState.IsValid;
     public float BaselineHeartRate => RuntimeBaselineState.HeartRate;
     public float BaselineRmssd => RuntimeBaselineState.Rmssd;
+    public float HeartRateIncreaseThreshold => heartRateIncreaseThreshold;
     public float LoadZThreshold => loadZThreshold;
     public bool AreVitalsAvailable => RuntimeBaselineState.IsValid
         && HasValidHeartRate(CurrentVitals)
@@ -74,9 +76,9 @@ public class DataReceiverScript : MonoBehaviour
             return false;
         }
 
-        float heartRateLoadZ = (snapshot.HeartRate - RuntimeBaselineState.HeartRate)
-            / RuntimeBaselineState.HeartRateStandardDeviation;
-        return heartRateLoadZ < loadZThreshold;
+        float heartRateThreshold = RuntimeBaselineState.HeartRate
+            * (1f + heartRateIncreaseThreshold);
+        return snapshot.HeartRate <= heartRateThreshold;
     }
 
     public bool IsRmssdPassing()
